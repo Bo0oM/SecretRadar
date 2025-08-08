@@ -10,7 +10,7 @@ It automatically scans web pages, loaded scripts, and network traffic for accide
 
 You can install the extension from the official Chrome Web Store.
 
-**[Install SecretRadar from the Chrome Web Store]** *(<-- Вставьте сюда вашу ссылку)*
+**[Install SecretRadar from the Chrome Web Store]** *(WAIT PUBLICATION)*
 
 ## Key Features
 
