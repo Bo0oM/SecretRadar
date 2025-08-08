@@ -161,13 +161,13 @@ const SECRET_PATTERNS = {
       const isDebugMode = settings.debugMode || false;
       
       if (isDebugMode) {
-        debugLog('PostgreSQL URL validation:', { match, context: context.surroundingText });
+        await debugLog('PostgreSQL URL validation:', { match, context: context.surroundingText });
       }
       
       // Проверяем, что это действительно PostgreSQL URL
       if (!match.startsWith('postgresql://')) {
         if (isDebugMode) {
-          debugLog('PostgreSQL URL validation failed - not a PostgreSQL URL:', match);
+          await debugLog('PostgreSQL URL validation failed - not a PostgreSQL URL:', match);
         }
         return false;
       }
@@ -440,7 +440,7 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
         // Skip if it's a known false positive
         if (FALSE_POSITIVE_PATTERNS.some(fp => fp.test(matchedValue))) {
           if (isDebugMode) {
-            debugLog(`Skipping known false positive for ${secretType}:`, matchedValue);
+            await debugLog(`Skipping known false positive for ${secretType}:`, matchedValue);
           }
           continue;
         }
@@ -451,7 +451,7 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
         // Run validation function if it exists
         if (config.validation && !config.validation(matchedValue, context)) {
           if (isDebugMode) {
-            debugLog(`Validation failed for ${secretType}:`, matchedValue);
+            await debugLog(`Validation failed for ${secretType}:`, matchedValue);
           }
           continue;
         }
@@ -705,13 +705,13 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
     
     // Логирование настроек для отладки только в debug mode
     if (settings.debugMode) {
-      debugLog('Current settings:', settings);
+      await debugLog('Current settings:', settings);
     }
     
     // Если Auto Scan отключен, не сканируем
     if (settings.autoScan === false) {
       if (settings.debugMode) {
-        debugLog('Auto Scan disabled, skipping scan');
+        await debugLog('Auto Scan disabled, skipping scan');
       }
       return;
     }
@@ -723,7 +723,7 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
     
     if (cachedTime && (now - cachedTime) < CACHE_DURATION) {
       if (settings.debugMode) {
-        debugLog('Already processed (cached):', cacheKey);
+        await debugLog('Already processed (cached):', cacheKey);
       }
       return;
     }
@@ -744,7 +744,7 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
     const filteredFindings = findings.filter(f => f.confidence >= threshold);
     
     if (settings.debugMode) {
-      debugLog(`Found ${findings.length} potential secrets, ${filteredFindings.length} above threshold ${threshold}`);
+      await debugLog(`Found ${findings.length} potential secrets, ${filteredFindings.length} above threshold ${threshold}`);
     }
     
     if (filteredFindings.length > 0) {
@@ -788,7 +788,7 @@ async function storeFindings(findings, origin) {
         // Log duplicate detection for debugging
         const settings = await chrome.storage.local.get(['debugMode']);
         if (settings.debugMode) {
-          debugLog('Duplicate secret detected and skipped:', {
+          await debugLog('Duplicate secret detected and skipped:', {
             type: finding.type,
             match: finding.match.substring(0, 20) + '...',
             source: finding.source,
@@ -830,22 +830,22 @@ async function showNotification(finding) {
   try {
     const settings = await chrome.storage.local.get(['enableNotifications', 'debugMode']);
     
-    debugLog(`Notification check - enableNotifications: ${settings.enableNotifications}, debugMode: ${settings.debugMode}`);
-    debugLog(`Security Alert: High-confidence ${finding.type} detected on ${finding.parentOrigin}`);
+    await debugLog(`Notification check - enableNotifications: ${settings.enableNotifications}, debugMode: ${settings.debugMode}`);
+    await debugLog(`Security Alert: High-confidence ${finding.type} detected on ${finding.parentOrigin}`);
     
     // Show browser notification if enabled
     if (settings.enableNotifications) {
-      debugLog('Creating browser notification...');
+      await debugLog('Creating browser notification...');
       const notificationId = await chrome.notifications.create({
         type: 'basic',
         iconUrl: 'icon48.png',
         title: 'SecretRadar Security Alert',
         message: `High-confidence ${finding.type} detected on ${finding.parentOrigin}`
       });
-      debugLog('Notification created with ID:', notificationId);
-    } else {
-      debugLog('Notifications are disabled in settings');
-    }
+              await debugLog('Notification created with ID:', notificationId);
+          } else {
+        await debugLog('Notifications are disabled in settings');
+      }
     
     // Update badge with alert indicator
     chrome.action.setBadgeText({
@@ -859,10 +859,10 @@ async function showNotification(finding) {
     try {
       const errorSettings = await chrome.storage.local.get(['debugMode']);
       if (errorSettings.debugMode) {
-        debugLog('Error showing notification:', error);
+        await debugLog('Error showing notification:', error);
       }
     } catch (settingsError) {
-      debugLog('Error showing notification:', error);
+      await debugLog('Error showing notification:', error);
     }
   }
 }
@@ -965,9 +965,9 @@ async function handleMessage(request, sender) {
     if (request.pageBody) {
       // Handle scripting injection messages
       const source = request.source || 'content-script';
-      debugLog('handleMessage: Received pageBody from', source);
-      debugLog('handleMessage: Origin:', request.origin);
-      debugLog('handleMessage: Page body length:', request.pageBody.length);
+      await debugLog('handleMessage: Received pageBody from', source);
+      await debugLog('handleMessage: Origin:', request.origin);
+      await debugLog('handleMessage: Page body length:', request.pageBody.length);
       
       await checkData(
         request.pageBody, 
@@ -979,7 +979,7 @@ async function handleMessage(request, sender) {
       // Проверяем настройку scanExternalScripts
       const settings = await chrome.storage.local.get(['scanExternalScripts']);
       if (settings.scanExternalScripts === false) {
-        debugLog('External scripts scanning disabled');
+        await debugLog('External scripts scanning disabled');
         return { success: false, reason: 'disabled' };
       }
       
@@ -992,7 +992,7 @@ async function handleMessage(request, sender) {
         
         // Check if response is successful
         if (!response.ok) {
-          debugLog(`Skipping ${request.scriptUrl} - HTTP ${response.status}`);
+          await debugLog(`Skipping ${request.scriptUrl} - HTTP ${response.status}`);
           return { success: false, reason: 'http_error', status: response.status };
         }
         
@@ -1008,7 +1008,7 @@ async function handleMessage(request, sender) {
         if (fetchError.message.includes('Content Security Policy') || 
             fetchError.message.includes('CSP') ||
             fetchError.message.includes('Failed to fetch')) {
-          debugLog(`CSP/Network error for ${request.scriptUrl}:`, fetchError.message);
+          await debugLog(`CSP/Network error for ${request.scriptUrl}:`, fetchError.message);
           return { success: false, reason: 'csp_error', error: fetchError.message };
         }
         
@@ -1020,7 +1020,7 @@ async function handleMessage(request, sender) {
       const settings = await chrome.storage.local.get(['scanSensitiveFiles', 'debugMode']);
       if (settings.scanSensitiveFiles === false) {
         if (settings.debugMode) {
-          debugLog('Sensitive files scanning disabled');
+          await debugLog('Sensitive files scanning disabled');
         }
         return { success: false, reason: 'disabled' };
       }
@@ -1032,7 +1032,7 @@ async function handleMessage(request, sender) {
       
       if (cachedTime && (now - cachedTime) < CACHE_DURATION) {
         if (settings.debugMode) {
-          debugLog('Sensitive file already processed (cached):', request.envFile);
+          await debugLog('Sensitive file already processed (cached):', request.envFile);
         }
         return { success: false, reason: 'cached' };
       }
@@ -1047,7 +1047,7 @@ async function handleMessage(request, sender) {
         // Check if response is successful
         if (!response.ok) {
           if (settings.debugMode) {
-            debugLog(`Skipping ${request.envFile} - HTTP ${response.status}`);
+            await debugLog(`Skipping ${request.envFile} - HTTP ${response.status}`);
           }
           return { success: false, reason: 'http_error', status: response.status };
         }
@@ -1064,12 +1064,11 @@ async function handleMessage(request, sender) {
         processedUrls.set(cacheKey, now);
         
       } catch (fetchError) {
-        // Улучшенная обработка ошибок CSP и сетевых ошибок
         if (fetchError.message.includes('Content Security Policy') || 
             fetchError.message.includes('CSP') ||
             fetchError.message.includes('Failed to fetch')) {
           if (settings.debugMode) {
-            debugLog(`CSP/Network error for ${request.envFile}:`, fetchError.message);
+            await debugLog(`CSP/Network error for ${request.envFile}:`, fetchError.message);
           }
           return { success: false, reason: 'csp_error', error: fetchError.message };
         }
@@ -1120,7 +1119,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         const origin = new URL(tab.url).origin;
         await updateBadge(origin);
       } catch (urlError) {
-        debugLog('Invalid file URL in tab activation:', tab.url);
+        await debugLog('Invalid file URL in tab activation:', tab.url);
         await chrome.action.setBadgeText({ text: '' });
       }
       return;
@@ -1132,7 +1131,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         const origin = new URL(tab.url).origin;
         await updateBadge(origin);
       } catch (urlError) {
-        debugLog('Invalid GitHub URL in tab activation:', tab.url);
+        await debugLog('Invalid GitHub URL in tab activation:', tab.url);
         await chrome.action.setBadgeText({ text: '' });
       }
       return;
@@ -1143,12 +1142,12 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       const origin = new URL(tab.url).origin;
       await updateBadge(origin);
     } catch (urlError) {
-      debugLog('Invalid URL in tab activation:', tab.url);
+      await debugLog('Invalid URL in tab activation:', tab.url);
       // Clear badge for invalid URLs
       await chrome.action.setBadgeText({ text: '' });
     }
   } catch (error) {
-    debugLog('Error updating badge on tab activation (normal for loading pages):', error.message);
+    await debugLog('Error updating badge on tab activation (normal for loading pages):', error.message);
     // Clear badge on error
     await chrome.action.setBadgeText({ text: '' });
   }
@@ -1177,9 +1176,9 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
           target: { tabId: tabId },
           function: scanPageContent
         });
-        debugLog('File URL scanned via scripting injection');
+        await debugLog('File URL scanned via scripting injection');
       } catch (scriptError) {
-        debugLog('File URL script injection failed:', scriptError.message);
+        await debugLog('File URL script injection failed:', scriptError.message);
       }
       return;
     }
@@ -1191,10 +1190,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         function: scanPageContent
       });
     } catch (scriptError) {
-      debugLog('Script injection failed (CSP restriction):', scriptError.message);
+      await debugLog('Script injection failed (CSP restriction):', scriptError.message);
     }
   } catch (error) {
-    debugLog('Error in tab update handler:', error.message);
+    await debugLog('Error in tab update handler:', error.message);
   }
 });
 
@@ -1246,7 +1245,7 @@ async function cleanupOldFindings() {
     
     if (cleanedCount > 0 || duplicateCount > 0 || deniedCount > 0) {
       await chrome.storage.local.set({ findings: cleanedFindings });
-      debugLog(`Cleaned up ${cleanedCount} old findings, removed ${duplicateCount} duplicates, and removed ${deniedCount} findings from denied domains`);
+      await debugLog(`Cleaned up ${cleanedCount} old findings, removed ${duplicateCount} duplicates, and removed ${deniedCount} findings from denied domains`);
     }
     
   } catch (error) {
@@ -1309,7 +1308,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Set up periodic cleanup (every 24 hours)
   setInterval(cleanupOldFindings, 24 * 60 * 60 * 1000);
   
-  debugLog('SecretRadar initialized');
+  await debugLog('SecretRadar initialized');
 });
 
 // Listen for storage changes to clean up findings when denyList is updated

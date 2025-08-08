@@ -6,7 +6,7 @@ async function debugLog(message, ...args) {
   try {
     const settings = await chrome.storage.local.get(['debugMode']);
     if (settings.debugMode) {
-      debugLog(message, ...args);
+      console.log('[SecretRadar Debug]', message, ...args);
     }
   } catch (error) {
     // Silent fallback if storage is not available
