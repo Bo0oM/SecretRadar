@@ -8,7 +8,7 @@ async function debugLog(message, ...args) {
       console.log(message, ...args);
     }
   } catch (error) {
-    // Silent fallback if storage is not available
+    
   }
 }
 
@@ -64,7 +64,7 @@ async function initializeDashboard() {
     applyFilters();
     
   } catch (error) {
-    debugLog('Error initializing dashboard:', error);
+    await debugLog('Error initializing dashboard:', error);
     showError('Failed to load dashboard data');
   }
 }
@@ -72,7 +72,7 @@ async function initializeDashboard() {
 // Setup event listeners
 function setupEventListeners() {
   // Filter controls
-  const filterSelects = ['siteFilter', 'typeFilter', 'confidenceFilter', 'dateFilter'];
+  const filterSelects = ['siteFilter', 'confidenceFilter', 'dateFilter'];
   filterSelects.forEach(filterId => {
     const element = document.getElementById(filterId);
     if (element) {
@@ -171,30 +171,27 @@ function setupEventListeners() {
   }
   
   // Source link click handler (delegated event)
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('source-link')) {
-      e.preventDefault();
-      const url = e.target.getAttribute('data-url');
-      if (url) {
-        // Try to open URL in new tab
-        try {
-          // For file:// URLs, we need to handle them differently
-          if (url.startsWith('file://')) {
-            // For file URLs, we can't open them directly due to security restrictions
-            // Instead, we can copy the path to clipboard or show a message
-            navigator.clipboard.writeText(url).then(() => {
-              showNotification('File path copied to clipboard', 'info');
-            }).catch(() => {
-              showNotification('File URL: ' + url, 'info');
-            });
-          } else {
-            // For web URLs, open in new tab
-            chrome.tabs.create({ url: url });
-          }
-        } catch (error) {
-          debugLog('Error opening URL:', error);
-          showNotification('Error opening URL', 'error');
+  document.addEventListener('click', async (event) => {
+    const target = event.target;
+    if (target.classList.contains('source-link')) {
+      event.preventDefault();
+      const url = target.getAttribute('data-url');
+      
+      try {
+        if (url.startsWith('file://')) {
+          // For file URLs, try to show in notification
+          chrome.tabs.create({ url: 'chrome://downloads/' }).then(() => {
+            showNotification('File URL: ' + url, 'info');
+          }).catch(() => {
+            showNotification('File URL: ' + url, 'info');
+          });
+        } else {
+          // For web URLs, open in new tab
+          chrome.tabs.create({ url: url });
         }
+      } catch (error) {
+        await debugLog('Error opening URL:', error);
+        showNotification('Error opening URL', 'error');
       }
     }
   });
@@ -209,7 +206,7 @@ async function loadDashboardData() {
     updateFindingsDisplay();
     updateCharts();
   } catch (error) {
-    debugLog('Error loading dashboard data:', error);
+    await debugLog('Error loading dashboard data:', error);
     showError('Failed to load dashboard data');
   }
 }
@@ -225,13 +222,8 @@ function applyFilters() {
     );
   }
   
-  // Apply type filter
-  if (dashboardState.filters.type) {
-    filtered = filtered.filter(finding => 
-      finding.type === dashboardState.filters.type
-    );
-  }
-  
+
+
   // Apply confidence filter
   if (dashboardState.filters.confidence) {
     filtered = filtered.filter(finding => {
@@ -282,8 +274,6 @@ function applyFilters() {
         return b.confidence - a.confidence;
       case 'confidence-asc':
         return a.confidence - b.confidence;
-      case 'type':
-        return a.type.localeCompare(b.type);
       case 'origin':
         return a.origin.localeCompare(b.origin);
       default:
@@ -321,13 +311,7 @@ function updateFilters() {
       sites.map(site => `<option value="${escapeHtml(site)}">${escapeHtml(site)}</option>`).join('');
   }
   
-  // Get unique types
-  const types = [...new Set(dashboardState.findings.map(f => f.type))].sort();
-  const typeFilter = document.getElementById('typeFilter');
-  if (typeFilter) {
-    typeFilter.innerHTML = '<option value="">All Types</option>' +
-      types.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join('');
-  }
+
 }
 
 // Update findings display
@@ -404,10 +388,7 @@ function createDetailedFindingHTML(finding) {
         ${finding.context.surroundingText ? `<div class="finding-context">Context: ${escapeHtml(finding.context.surroundingText)}</div>` : ''}
         <div class="finding-time">Found: ${new Date(finding.timestamp).toLocaleString()}</div>
       </div>
-      <div class="finding-actions">
-        <button class="btn btn-outline btn-sm" onclick="copyToClipboard('${escapeHtml(finding.match)}')">Copy</button>
-        <button class="btn btn-outline btn-sm" onclick="ignoreFinding('${finding.type}', '${escapeHtml(finding.match)}')">Ignore</button>
-      </div>
+
     </div>
   `;
 }
@@ -429,7 +410,7 @@ function clearFilters() {
   };
   
   // Reset filter dropdowns
-  const filterSelects = ['siteFilter', 'typeFilter', 'confidenceFilter', 'dateFilter'];
+  const filterSelects = ['siteFilter', 'confidenceFilter', 'dateFilter'];
   filterSelects.forEach(filterId => {
     const element = document.getElementById(filterId);
     if (element) {
@@ -439,9 +420,9 @@ function clearFilters() {
 }
 
 // Update charts
-function updateCharts() {
+async function updateCharts() {
   // Charts removed due to CSP restrictions
-  debugLog('Charts disabled due to Content Security Policy');
+  await debugLog('Charts disabled due to Content Security Policy');
 }
 
 // Export all findings
@@ -465,8 +446,8 @@ async function exportAllFindings() {
     
     showNotification('Export completed successfully', 'success');
   } catch (error) {
-    debugLog('Error exporting findings:', error);
-    showError('Failed to export findings');
+    await debugLog('Error exporting findings:', error);
+    showNotification('Export failed', 'error');
   }
 }
 
@@ -477,8 +458,8 @@ async function clearAllFindings() {
     await loadDashboardData();
     showNotification('All findings cleared', 'success');
   } catch (error) {
-    debugLog('Error clearing findings:', error);
-    showError('Failed to clear findings');
+    await debugLog('Error clearing findings:', error);
+    showNotification('Failed to clear findings', 'error');
   }
 }
 
@@ -489,38 +470,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function copyToClipboard(text) {
-  // Создаем временный textarea для копирования
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  textarea.style.top = '-9999px';
-  document.body.appendChild(textarea);
-  
-  try {
-    textarea.select();
-    textarea.setSelectionRange(0, 99999); // Для мобильных устройств
-    document.execCommand('copy');
-    showNotification('Copied to clipboard', 'success');
-  } catch (err) {
-    debugLog('Failed to copy:', err);
-    // Fallback: попробуем современный API
-    navigator.clipboard.writeText(text).then(() => {
-      showNotification('Copied to clipboard', 'success');
-    }).catch(clipboardErr => {
-      debugLog('Clipboard API failed:', clipboardErr);
-      showNotification('Failed to copy to clipboard', 'error');
-    });
-  } finally {
-    document.body.removeChild(textarea);
-  }
-}
-
-function ignoreFinding(type, match) {
-  // This would add the finding to an ignore list
-  showNotification('Finding ignored', 'info');
-}
 
 function showNotification(message, type = 'info') {
   // Create notification element
@@ -543,6 +492,4 @@ function showError(message) {
   showNotification(message, 'error');
 }
 
-// Global functions for inline event handlers
-window.copyToClipboard = copyToClipboard;
-window.ignoreFinding = ignoreFinding;
+

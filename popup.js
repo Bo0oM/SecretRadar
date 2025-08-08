@@ -9,7 +9,6 @@ async function debugLog(message, ...args) {
       console.log('[SecretRadar Debug]', message, ...args);
     }
   } catch (error) {
-    // Silent fallback if storage is not available
   }
 }
 
@@ -87,9 +86,9 @@ async function loadDenyList() {
     `).join('');
     
     denyListContainer.innerHTML = denyListHTML;
-  } catch (error) {
-    debugLog('Error loading deny list:', error);
-  }
+      } catch (error) {
+      await debugLog('Error loading deny list:', error);
+    }
 }
 
 // Add domain to deny list
@@ -120,7 +119,7 @@ async function addToDenyList(domain) {
     showNotification(`Added ${domain} to deny list`, 'success');
     return true;
   } catch (error) {
-    debugLog('Error adding to deny list:', error);
+    await debugLog('Error adding to deny list:', error);
     showNotification('Failed to add domain to deny list', 'error');
     return false;
   }
@@ -141,7 +140,7 @@ async function removeFromDenyList(domain) {
     
     showNotification(`Removed ${domain} from deny list`, 'success');
   } catch (error) {
-    debugLog('Error removing from deny list:', error);
+    await debugLog('Error removing from deny list:', error);
     showNotification('Failed to remove domain from deny list', 'error');
   }
 }
@@ -153,7 +152,7 @@ async function clearDenyList() {
     await loadDenyList();
     showNotification('Deny list cleared', 'success');
   } catch (error) {
-    debugLog('Error clearing deny list:', error);
+    await debugLog('Error clearing deny list:', error);
     showNotification('Failed to clear deny list', 'error');
   }
 }
@@ -228,9 +227,9 @@ async function loadCurrentTabFindings() {
     const storage = await chrome.storage.local.get(['findings']);
     const findings = storage.findings?.[origin] || [];
     
-    displayFindings(findings, origin);
+    await displayFindings(findings, origin);
   } catch (error) {
-    debugLog('Error loading findings:', error);
+    await debugLog('Error loading findings:', error);
     displayStatus('Error loading data', 'error');
   }
 }
@@ -241,7 +240,7 @@ function displayFindings(findings, origin) {
   const statusElement = document.getElementById('status');
   
   if (!findingsContainer || !statusElement) {
-    debugLog('Required elements not found');
+    debugLog('Required elements not found');  
     return;
   }
   
@@ -255,7 +254,6 @@ function displayFindings(findings, origin) {
   statusElement.textContent = `${findings.length} security issue(s) found`;
   statusElement.className = 'status warning';
   
-  // Добавляем фильтр поиска
   const filterHTML = `
     <div class="findings-filter">
       <input type="text" id="findingsFilter" placeholder="Filter findings..." class="filter-input">
@@ -265,15 +263,7 @@ function displayFindings(findings, origin) {
         <option value="medium">Medium confidence (50-79%)</option>
         <option value="low">Low confidence (30-49%)</option>
       </select>
-      <select id="typeFilter" class="filter-select">
-        <option value="">All types</option>
-        <option value="AWS">AWS</option>
-        <option value="GitHub">GitHub</option>
-        <option value="Stripe">Stripe</option>
-        <option value="Heroku">Heroku</option>
-        <option value="Database">Database</option>
-        <option value="Generic">Generic</option>
-      </select>
+
     </div>
   `;
   
@@ -298,7 +288,6 @@ function displayFindings(findings, origin) {
   
   findingsContainer.innerHTML = filterHTML + findingsHTML;
   
-  // Добавляем обработчики фильтров
   setupFilters();
 }
 
@@ -333,8 +322,6 @@ function displayError(message) {
 function setupFilters() {
   const textFilter = document.getElementById('findingsFilter');
   const confidenceFilter = document.getElementById('confidenceFilter');
-  const typeFilter = document.getElementById('typeFilter');
-  
   if (textFilter) {
     textFilter.addEventListener('input', applyFilters);
   }
@@ -342,21 +329,15 @@ function setupFilters() {
   if (confidenceFilter) {
     confidenceFilter.addEventListener('change', applyFilters);
   }
-  
-  if (typeFilter) {
-    typeFilter.addEventListener('change', applyFilters);
-  }
 }
 
 // Apply filters to findings
 function applyFilters() {
   const textFilter = document.getElementById('findingsFilter');
   const confidenceFilter = document.getElementById('confidenceFilter');
-  const typeFilter = document.getElementById('typeFilter');
   
   const textValue = textFilter ? textFilter.value.toLowerCase() : '';
   const confidenceValue = confidenceFilter ? confidenceFilter.value : '';
-  const typeValue = typeFilter ? typeFilter.value : '';
   
   const findings = document.querySelectorAll('.finding-item');
   
@@ -387,13 +368,7 @@ function applyFilters() {
       }
     }
     
-    // Type filter
-    if (typeValue && show) {
-      const type = finding.dataset.type;
-      if (!type.includes(typeValue)) {
-        show = false;
-      }
-    }
+
     
     finding.style.display = show ? 'block' : 'none';
   });
@@ -572,7 +547,7 @@ async function toggleAdvancedSettings() {
       button.textContent = newState ? 'Hide Advanced' : 'Advanced';
     }
   } catch (error) {
-    debugLog('Error toggling advanced settings:', error);
+    await debugLog('Error toggling advanced settings:', error);
   }
 }
 
@@ -582,8 +557,7 @@ async function openDashboard() {
     const dashboardUrl = chrome.runtime.getURL('dashboard.html');
     await chrome.tabs.create({ url: dashboardUrl });
   } catch (error) {
-    debugLog('Error opening dashboard:', error);
-    // Fallback: open dashboard in current tab
+    await debugLog('Error opening dashboard:', error);
     window.open(chrome.runtime.getURL('dashboard.html'), '_blank');
   }
 }
@@ -635,7 +609,7 @@ async function updateUI() {
 // Test all settings functionality
 async function testSettingsFunctionality() {
   try {
-    debugLog('Testing settings functionality...');
+    await debugLog('Testing settings functionality...');
     
     // Test storage access
     const testData = { test: 'value', timestamp: Date.now() };
@@ -643,10 +617,10 @@ async function testSettingsFunctionality() {
     const retrieved = await chrome.storage.local.get(['test']);
     
     if (retrieved.test !== testData.test) {
-      debugLog('Storage test failed');
+      await debugLog('Storage test failed');
       showNotification('Storage test failed', 'error');
     } else {
-      debugLog('Storage test passed');
+      await debugLog('Storage test passed');
     }
     
     // Clean up test data
@@ -655,21 +629,21 @@ async function testSettingsFunctionality() {
     // Test current tab access
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) {
-      debugLog('No active tab found - this is normal for new windows');
+      await debugLog('No active tab found - this is normal for new windows');
       return;
     }
     
     if (!tab.url || tab.url === 'about:blank' || tab.url === 'chrome://newtab/') {
-      debugLog('Tab not fully loaded yet - this is normal');
+      await debugLog('Tab not fully loaded yet - this is normal');
       return;
     }
     
     if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-      debugLog('Skipping tests for browser/system pages');
+      await debugLog('Skipping tests for browser/system pages');
       return;
     }
     
-    debugLog('Tab access test passed');
+    await debugLog('Tab access test passed');
     
     // Test scripting API (skip for restricted URLs)
     try {
@@ -677,13 +651,13 @@ async function testSettingsFunctionality() {
         target: { tabId: tab.id },
         func: () => 'test'
       });
-      debugLog('Scripting API test passed');
+      await debugLog('Scripting API test passed');
     } catch (error) {
-      debugLog('Scripting API test skipped - page not ready or restricted:', error.message);
+      await debugLog('Scripting API test skipped - page not ready or restricted:', error.message);
     }
     
   } catch (error) {
-    debugLog('Settings functionality test failed:', error);
+    await debugLog('Settings functionality test failed:', error);
     showNotification('Settings test failed', 'error');
   }
 }
@@ -723,12 +697,12 @@ async function triggerScan() {
         displayStatus(response.error || 'Scan failed', 'error');
       }
     } catch (scriptError) {
-      debugLog('Manual scan failed:', scriptError.message);
+      await debugLog('Manual scan failed:', scriptError.message);
       displayStatus('Scan failed - CSP restriction', 'warning');
     }
     
   } catch (error) {
-    debugLog('Error triggering scan:', error);
+    await debugLog('Error triggering scan:', error);
     displayStatus('Failed to trigger scan', 'error');
   }
 }
@@ -779,7 +753,7 @@ async function clearCurrentTabFindings() {
       displayStatus('No findings to clear', 'safe');
     }
   } catch (error) {
-    debugLog('Error clearing findings:', error);
+    await debugLog('Error clearing findings:', error);
     displayStatus('Failed to clear findings', 'error');
   }
 }
@@ -812,7 +786,7 @@ async function clearDeniedDomainFindings() {
       showNotification('No findings from denied domains to clear', 'info');
     }
   } catch (error) {
-    debugLog('Error clearing denied domain findings:', error);
+    await debugLog('Error clearing denied domain findings:', error);
     showNotification('Error clearing denied domain findings', 'error');
   }
 }
@@ -830,7 +804,7 @@ async function isOriginDenied(url) {
     try {
       domain = new URL(url).hostname;
     } catch (error) {
-      debugLog('Invalid URL for deny list check:', url);
+      await debugLog('Invalid URL for deny list check:', url);
       return false;
     }
     
@@ -843,7 +817,7 @@ async function isOriginDenied(url) {
     
     return false;
   } catch (error) {
-    debugLog('Error checking origin deny list:', error);
+    await debugLog('Error checking origin deny list:', error);
     return false;
   }
 }
@@ -887,7 +861,7 @@ async function exportFindings() {
     URL.revokeObjectURL(url);
     
   } catch (error) {
-    debugLog('Error exporting findings:', error);
+    await debugLog('Error exporting findings:', error);
     displayError('Failed to export findings');
   }
 }

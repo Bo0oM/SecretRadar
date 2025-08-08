@@ -10,9 +10,8 @@
       if (currentSettings.debugMode) {
         console.log('[SecretRadar Debug]', message, ...args);
       }
-    } catch (error) {
-      // Silent fallback if storage is not available
-    }
+      } catch (error) {
+  }
   }
 
   // Performance optimization: Debounce function
@@ -39,7 +38,7 @@
       
       if (settings.autoScan === false) {
         if (settings.debugMode) {
-          debugLog('Auto Scan disabled in content script, skipping scan');
+          await debugLog('Auto Scan disabled in content script, skipping scan');
         }
         return;
       }
@@ -50,7 +49,7 @@
       const parentOrigin = window.location.origin;
 
       if (settings.debugMode) {
-        debugLog('Starting page scan for:', origin);
+        await debugLog('Starting page scan for:', origin);
       }
 
       // Send page content for analysis
@@ -62,7 +61,7 @@
       });
       
       if (settings.debugMode) {
-        debugLog('Page scan result:', pageResult);
+        await debugLog('Page scan result:', pageResult);
       }
 
       // Scan external scripts with improved performance
@@ -74,17 +73,17 @@
     } catch (error) {
       // Handle extension context invalidated error
       if (error.message && error.message.includes('Extension context invalidated')) {
-        debugLog('Extension context invalidated, stopping page scan');
+        await debugLog('Extension context invalidated, stopping page scan');
         return;
       }
       
       try {
         const settings = await chrome.storage.local.get(['debugMode']);
         if (settings.debugMode) {
-          debugLog('Error scanning page:', error);
+        await debugLog('Error scanning page:', error);
         }
       } catch (settingsError) {
-        debugLog('Error scanning page:', error);
+        await debugLog('Error scanning page:', error);
       }
     }
   }, 1000); // Debounce for 1 second
@@ -92,11 +91,10 @@
   // Scan external scripts with caching
   async function scanExternalScripts() {
     try {
-      // Проверяем настройку scanExternalScripts
       const settings = await chrome.storage.local.get(['scanExternalScripts', 'debugMode']);
       if (settings.scanExternalScripts === false) {
         if (settings.debugMode) {
-          debugLog('External scripts scanning disabled');
+          await debugLog('External scripts scanning disabled');
         }
         return;
       }
@@ -105,7 +103,7 @@
       const processedScripts = new Set();
       
       if (settings.debugMode) {
-        debugLog(`Found ${scripts.length} external scripts to scan`);
+        await debugLog(`Found ${scripts.length} external scripts to scan`);
       }
       
       for (const script of scripts) {
@@ -119,7 +117,7 @@
         // Skip if already processed in this session
         if (processedScripts.has(scriptSrc)) {
           if (settings.debugMode) {
-            debugLog(`Skipping already processed script: ${scriptSrc}`);
+            await debugLog(`Skipping already processed script: ${scriptSrc}`);
           }
           continue;
         }
@@ -135,41 +133,41 @@
           
           if (settings.debugMode) {
             if (result && result.reason === 'csp_error') {
-              debugLog(`CSP error for script: ${scriptSrc}`);
+              await debugLog(`CSP error for script: ${scriptSrc}`);
             } else if (result && result.reason === 'disabled') {
-              debugLog(`Script scanning disabled for: ${scriptSrc}`);
+              await debugLog(`Script scanning disabled for: ${scriptSrc}`);
             } else if (result && result.reason === 'cached') {
-              debugLog(`Script already cached: ${scriptSrc}`);
+              await debugLog(`Script already cached: ${scriptSrc}`);
             }
           }
         } catch (error) {
           // Handle extension context invalidated error
           if (error.message && error.message.includes('Extension context invalidated')) {
             if (settings.debugMode) {
-              debugLog('Extension context invalidated, stopping script scan');
+              await debugLog('Extension context invalidated, stopping script scan');
             }
             return; // Stop scanning scripts
           }
           
           if (settings.debugMode) {
-            debugLog('Error scanning script:', scriptSrc, error);
+            await debugLog('Error scanning script:', scriptSrc, error);
           }
         }
       }
     } catch (error) {
       // Handle extension context invalidated error
       if (error.message && error.message.includes('Extension context invalidated')) {
-        debugLog('Extension context invalidated, stopping external scripts scan');
+        await debugLog('Extension context invalidated, stopping external scripts scan');
         return;
       }
       
       try {
         const settings = await chrome.storage.local.get(['debugMode']);
         if (settings.debugMode) {
-          debugLog('Error in scanExternalScripts:', error);
+          await debugLog('Error in scanExternalScripts:', error);
         }
       } catch (settingsError) {
-        debugLog('Error in scanExternalScripts:', error);
+        await debugLog('Error in scanExternalScripts:', error);
       }
     }
   }
@@ -180,7 +178,7 @@
       const settings = await chrome.storage.local.get(['scanSensitiveFiles', 'debugMode']);
       if (settings.scanSensitiveFiles === false) {
         if (settings.debugMode) {
-          debugLog('Sensitive files scanning disabled');
+          await debugLog('Sensitive files scanning disabled');
         }
         return;
       }
@@ -212,7 +210,7 @@
       ];
 
       if (settings.debugMode) {
-        debugLog(`Scanning ${sensitiveFiles.length} sensitive files`);
+        await debugLog(`Scanning ${sensitiveFiles.length} sensitive files`);
       }
 
       for (const file of sensitiveFiles) {
@@ -227,16 +225,16 @@
           
           if (settings.debugMode) {
             if (result && result.reason === 'csp_error') {
-              debugLog(`CSP error for file: ${fileUrl}`);
+              await debugLog(`CSP error for file: ${fileUrl}`);
             } else if (result && result.reason === 'disabled') {
-              debugLog(`File scanning disabled for: ${fileUrl}`);
+              await debugLog(`File scanning disabled for: ${fileUrl}`);
             }
           }
         } catch (error) {
           // Silently ignore 404 errors for missing files
           if (!error.message.includes('404')) {
             if (settings.debugMode) {
-              debugLog('Error scanning file:', fileUrl, error);
+              await debugLog('Error scanning file:', fileUrl, error);
             }
           }
         }
@@ -244,17 +242,17 @@
     } catch (error) {
       // Handle extension context invalidated error
       if (error.message && error.message.includes('Extension context invalidated')) {
-        debugLog('Extension context invalidated, stopping sensitive files scan');
+        await debugLog('Extension context invalidated, stopping sensitive files scan');
         return;
       }
       
       try {
         const settings = await chrome.storage.local.get(['debugMode']);
         if (settings.debugMode) {
-          debugLog('Error in scanSensitiveFiles:', error);
+          await debugLog('Error in scanSensitiveFiles:', error);
         }
       } catch (settingsError) {
-        debugLog('Error in scanSensitiveFiles:', error);
+        await debugLog('Error in scanSensitiveFiles:', error);
       }
     }
   }
@@ -296,7 +294,7 @@
   }
 
   // Initialize scanning
-  function initialize() {
+  async function initialize() {
     try {
       // Wait for DOM to be ready
       if (document.readyState === 'loading') {
@@ -321,16 +319,18 @@
     } catch (error) {
       // Handle extension context invalidated error
       if (error.message && error.message.includes('Extension context invalidated')) {
-        debugLog('Extension context invalidated during initialization');
+        await debugLog('Extension context invalidated during initialization');
         return;
       }
       
-      debugLog('Error initializing SecretRadar:', error);
+      await debugLog('Error initializing SecretRadar:', error);
     }
   }
 
   // Start the scanner
-  initialize();
+  initialize().catch(error => {
+    console.error('Failed to initialize SecretRadar:', error);
+  });
 
   // Export functions for potential external use
   window.secretRadar = {

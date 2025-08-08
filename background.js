@@ -108,12 +108,10 @@ const SECRET_PATTERNS = {
     confidence: "high",
     context: ["telegram", "bot", "token"],
     validation: (match, context) => {
-      // Проверяем, что это действительно Telegram Bot Token
       if (!match.includes(':AA')) {
         return false;
       }
       
-      // Проверяем контекст на наличие Telegram-специфичных ключевых слов
       const telegramKeywords = ['telegram', 'bot', 'token', 'api'];
       const hasTelegramContext = telegramKeywords.some(keyword => 
         context.surroundingText.toLowerCase().includes(keyword)
@@ -152,11 +150,10 @@ const SECRET_PATTERNS = {
   
   // Database connection strings
   "PostgreSQL URL": {
-    pattern: /postgresql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+:\d+\/[a-zA-Z0-9_-]+/g,
+    pattern: /postgresql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?:\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
     context: ["postgresql", "postgres", "database", "connection", "url"],
     validation: async (match, context) => {
-      // Check debug mode
       const settings = await chrome.storage.local.get(['debugMode']);
       const isDebugMode = settings.debugMode || false;
       
@@ -164,7 +161,6 @@ const SECRET_PATTERNS = {
         await debugLog('PostgreSQL URL validation:', { match, context: context.surroundingText });
       }
       
-      // Проверяем, что это действительно PostgreSQL URL
       if (!match.startsWith('postgresql://')) {
         if (isDebugMode) {
           await debugLog('PostgreSQL URL validation failed - not a PostgreSQL URL:', match);
@@ -273,8 +269,12 @@ const SECRET_PATTERNS = {
     confidence: "high",
     context: ["password", "secret", "credential"]
   },
+  "PHP API Key Variable": {
+    pattern: /\\\$api_key\\s*=\\s*["']([a-zA-Z0-9_-]{20,})["']/gi,
+    confidence: "high",
+    context: ["api", "key", "secret", "token", "php"]
+  },
   
-  // Новые паттерны для веб-приложений
   "Firebase Config": {
     pattern: /apiKey:\s*["']([^"']{39})["']/g,
     confidence: "high",
@@ -384,7 +384,6 @@ async function debugLog(message, ...args) {
       console.log('[SecretRadar Debug]', message, ...args);
     }
   } catch (error) {
-    // Silent fallback if storage is not available
   }
 }
 
@@ -700,15 +699,12 @@ function calculateConfidence(config, context, match) {
 // Optimized data checking with caching
 const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
   try {
-    // Проверяем настройки перед сканированием
     const settings = await chrome.storage.local.get(['autoScan', 'confidenceThreshold', 'debugMode']);
     
-    // Логирование настроек для отладки только в debug mode
     if (settings.debugMode) {
       await debugLog('Current settings:', settings);
     }
     
-    // Если Auto Scan отключен, не сканируем
     if (settings.autoScan === false) {
       if (settings.debugMode) {
         await debugLog('Auto Scan disabled, skipping scan');
@@ -739,7 +735,7 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
     
     const findings = await detectSecrets(data, src, parentUrl, parentOrigin);
     
-    // Применяем порог уверенности из настроек
+    // Applying the confidence threshold from the settings
     const threshold = settings.confidenceThreshold || 0.3;
     const filteredFindings = findings.filter(f => f.confidence >= threshold);
     
@@ -1125,17 +1121,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       return;
     }
     
-    // Handle GitHub URLs (special case for CSP restrictions)
-    if (tab.url.includes('github.com')) {
-      try {
-        const origin = new URL(tab.url).origin;
-        await updateBadge(origin);
-      } catch (urlError) {
-        await debugLog('Invalid GitHub URL in tab activation:', tab.url);
-        await chrome.action.setBadgeText({ text: '' });
-      }
-      return;
-    }
+
     
     // Handle invalid URLs
     try {
