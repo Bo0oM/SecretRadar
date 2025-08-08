@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecretRadar</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <img src="secretradar.png" alt="SecretRadar" class="logo-icon">
+                <h1>SecretRadar</h1>
+            </div>
+            <div id="status" class="status safe">Initializing...</div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Findings Section -->
+            <section class="findings-section">
+                <div class="section-header">
+                    <h2>Security Findings</h2>
+                    <div class="section-actions">
+                        <button id="scanNow" class="btn btn-primary">Scan Now</button>
+                        <button id="clearFindings" class="btn btn-secondary">Clear</button>
+                    </div>
+                </div>
+                <div id="findingsList" class="findings-list">
+                    <p class="loading">Loading findings...</p>
+                </div>
+            </section>
+
+            <!-- Actions Section -->
+            <section class="actions-section">
+                <div class="section-header">
+                    <h2>Actions</h2>
+                </div>
+                <div class="actions-grid">
+                    <button id="exportFindings" class="btn btn-outline">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7,10 12,15 17,10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Export CSV
+                    </button>
+                    <button id="clearDeniedFindings" class="btn btn-outline">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Clear Denied
+                    </button>
+                    
+                    <button id="openDashboard" class="btn btn-outline">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                        Dashboard
+                    </button>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section class="settings-section">
+                <div class="section-header">
+                    <h2>Settings</h2>
+                    <button id="openSettings" class="btn btn-link">Advanced</button>
+                </div>
+                
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="autoScan" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Auto Scan</span>
+                        </label>
+                        <span class="setting-description">Automatically scan pages when loaded</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="scanExternalScripts" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Scan External Scripts</span>
+                        </label>
+                        <span class="setting-description">Check external JavaScript files for secrets</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="scanSensitiveFiles" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Scan Sensitive Files</span>
+                        </label>
+                        <span class="setting-description">Check for .env, config files, etc.</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="enableNotifications" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Enable Notifications</span>
+                        </label>
+                        <span class="setting-description">Show alerts for high-confidence findings</span>
+                    </div>
+                </div>
+
+                <div class="confidence-setting">
+                    <label for="confidenceThreshold" class="confidence-label">
+                        Confidence Threshold: <span id="confidenceValue">30%</span>
+                    </label>
+                    <input type="range" id="confidenceThreshold" min="0.1" max="1.0" step="0.1" value="0.3" class="confidence-slider">
+                    <div class="confidence-labels">
+                        <span>Low</span>
+                        <span>High</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Advanced Settings Section -->
+            <section id="advancedSettings" class="advanced-settings-section" style="display: none;">
+                <div class="section-header">
+                    <h2>Advanced Settings</h2>
+                </div>
+                
+                <div class="advanced-settings-grid">
+                    <div class="setting-item">
+                        <label for="dataRetentionDays" class="setting-label">
+                            Data Retention: <span id="retentionValue">7 days</span>
+                        </label>
+                        <input type="range" id="dataRetentionDays" min="1" max="30" step="1" value="7" class="setting-slider">
+                        <div class="setting-labels">
+                            <span>1 day</span>
+                            <span>30 days</span>
+                        </div>
+                        <span class="setting-description">How long to keep findings before automatic cleanup</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="debugMode">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Debug Mode</span>
+                        </label>
+                        <span class="setting-description">Show detailed logs in browser console</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="verboseScanning">
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Verbose Scanning</span>
+                        </label>
+                        <span class="setting-description">Scan more thoroughly (may be slower)</span>
+                    </div>
+                </div>
+
+                <!-- DenyList Management -->
+                <div class="denylist-section">
+                    <div class="section-header">
+                        <h3>Deny List</h3>
+                        <span class="section-description">Sites to exclude from scanning</span>
+                    </div>
+                    
+                    <div class="denylist-controls">
+                        <div class="add-domain-form">
+                            <div class="input-group">
+                                <input type="text" id="newDomain" placeholder="Enter domain (e.g., google.com or *.google.com)" class="domain-input">
+                                <button id="addDomain" class="btn btn-primary">Add</button>
+                            </div>
+                            <div class="domain-examples">
+                                <small>Examples: google.com, *.google.com, *.example.com</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="denylist-list">
+                        <div class="list-header">
+                            <span>Blocked Domains</span>
+                            <button id="clearDenyList" class="btn btn-link btn-sm">Clear All</button>
+                        </div>
+                        <div id="denyListItems" class="deny-list-items">
+                            <p class="loading">Loading deny list...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="advanced-actions">
+                    <button id="clearAllData" class="btn btn-danger">Clear All Data</button>
+                    <button id="resetSettings" class="btn btn-secondary">Reset Settings</button>
+                </div>
+            </section>
+
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-info">
+                <span class="version">v1.0.0</span>
+                <span class="separator">•</span>
+                <a href="https://t.me/webpwn" target="_blank" class="footer-link">WebPwn</a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

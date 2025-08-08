@@ -1,0 +1,48 @@
+{
+  "name": "SecretRadar",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "description": "Advanced security scanner for detecting sensitive data and secrets in web applications",
+  "homepage_url": "https://bo0om.ru",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "SecretRadar",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*",
+    "file://*/*"
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*/*", "http://*/*", "file://*/*"],
+      "js": ["SecretRadar.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["SecretRadar.js", "dashboard.html"],
+      "matches": ["https://*/*", "http://*/*", "file://*/*"]
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecretRadar Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <img src="secretradar.png" alt="SecretRadar" class="logo-icon">
+                <h1>SecretRadar Dashboard</h1>
+            </div>
+            <div class="header-actions">
+                <button id="refreshData" class="btn btn-primary">Refresh</button>
+                <button id="exportAll" class="btn btn-secondary">Export All</button>
+                <button id="clearAll" class="btn btn-danger">Clear All</button>
+            </div>
+        </header>
+
+        <!-- Stats Section -->
+        <section class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalFindings">0</div>
+                    <div class="stat-label">Total Findings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalSites">0</div>
+                    <div class="stat-label">Sites Scanned</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="highConfidence">0</div>
+                    <div class="stat-label">High Confidence</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="recentFindings">0</div>
+                    <div class="stat-label">Last 24h</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters Section -->
+        <section class="filters-section">
+            <div class="filters-header">
+                <h2>Filters</h2>
+                <button id="clearFilters" class="btn btn-link">Clear Filters</button>
+            </div>
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="siteFilter">Site:</label>
+                    <select id="siteFilter" class="filter-select">
+                        <option value="">All Sites</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="typeFilter">Type:</label>
+                    <select id="typeFilter" class="filter-select">
+                        <option value="">All Types</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="confidenceFilter">Confidence:</label>
+                    <select id="confidenceFilter" class="filter-select">
+                        <option value="">All Levels</option>
+                        <option value="high">High (80%+)</option>
+                        <option value="medium">Medium (50-79%)</option>
+                        <option value="low">Low (<50%)</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="dateFilter">Date Range:</label>
+                    <select id="dateFilter" class="filter-select">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">Last 7 Days</option>
+                        <option value="month">Last 30 Days</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Findings Section -->
+        <section class="findings-section">
+            <div class="findings-header">
+                <h2>All Findings</h2>
+                <div class="findings-count">
+                    Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> findings
+                </div>
+            </div>
+            
+            <div class="findings-controls">
+                <div class="sort-controls">
+                    <label for="sortBy">Sort by:</label>
+                    <select id="sortBy" class="sort-select">
+                        <option value="timestamp">Date (Newest)</option>
+                        <option value="timestamp-asc">Date (Oldest)</option>
+                        <option value="confidence">Confidence (High)</option>
+                        <option value="confidence-asc">Confidence (Low)</option>
+                        <option value="type">Type</option>
+                        <option value="origin">Site</option>
+                    </select>
+                </div>
+                <div class="view-controls">
+                    <button id="viewCompact" class="btn btn-sm btn-outline active">Compact</button>
+                    <button id="viewDetailed" class="btn btn-sm btn-outline">Detailed</button>
+                </div>
+            </div>
+
+            <div id="findingsList" class="findings-list">
+                <p class="loading">Loading findings...</p>
+            </div>
+
+            <div class="pagination">
+                <button id="prevPage" class="btn btn-outline" disabled>Previous</button>
+                <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                <button id="nextPage" class="btn btn-outline" disabled>Next</button>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="charts-header">
+                <h2>Analytics</h2>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Findings by Type</h3>
+                    <div id="typeChart" class="chart-container">
+                        <p class="no-data">No data available</p>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Findings by Site</h3>
+                    <div id="siteChart" class="chart-container">
+                        <p class="no-data">No data available</p>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Timeline</h3>
+                    <div id="timelineChart" class="chart-container">
+                        <p class="no-data">No data available</p>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Confidence Distribution</h3>
+                    <div id="confidenceChart" class="chart-container">
+                        <p class="no-data">No data available</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
