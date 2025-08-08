@@ -381,7 +381,7 @@ async function debugLog(message, ...args) {
   try {
     const settings = await chrome.storage.local.get(['debugMode']);
     if (settings.debugMode) {
-      debugLog(message, ...args);
+      console.log('[SecretRadar Debug]', message, ...args);
     }
   } catch (error) {
     // Silent fallback if storage is not available
@@ -1255,7 +1255,7 @@ async function cleanupOldFindings() {
 }
 
 // Function to scan page content (injected via scripting API to bypass CSP)
-function scanPageContent() {
+async function scanPageContent() {
   try {
     // Get page content
     const pageContent = document.documentElement.innerHTML;
@@ -1266,10 +1266,10 @@ function scanPageContent() {
     // For file:// URLs, use a special origin
     const effectiveOrigin = origin === 'null' ? 'file://' : origin;
     
-    debugLog('scanPageContent: Page content length:', pageContent.length);
-    debugLog('scanPageContent: Origin:', origin);
-    debugLog('scanPageContent: Effective origin:', effectiveOrigin);
-    debugLog('scanPageContent: Parent URL:', parentUrl);
+    await debugLog('scanPageContent: Page content length:', pageContent.length);
+    await debugLog('scanPageContent: Origin:', origin);
+    await debugLog('scanPageContent: Effective origin:', effectiveOrigin);
+    await debugLog('scanPageContent: Parent URL:', parentUrl);
     
     // Send message to background script
     chrome.runtime.sendMessage({
@@ -1280,9 +1280,9 @@ function scanPageContent() {
       source: 'scripting-injection'
     });
     
-    debugLog('Page scanned via scripting injection (CSP bypass)');
+    await debugLog('Page scanned via scripting injection (CSP bypass)');
   } catch (error) {
-    debugLog('Error in page scan via injection:', error.message);
+    await debugLog('Error in page scan via injection:', error.message);
   }
 }
 
