@@ -1291,9 +1291,13 @@ async function storeFindings(findings, origin) {
     
     await chrome.storage.local.set({ findings: existingFindings });
     
-    // Update badge after storing findings
+    // Update badge after storing findings only if there are findings
     if (findings.length > 0 && findings[0].parentOrigin) {
       await updateBadge(findings[0].parentOrigin);
+    } else {
+              // Clear badge if no findings for this origin
+        await chrome.action.setBadgeText({ text: '' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#6c757d' });
     }
   } catch (error) {
     console.error('Error storing findings:', error);
@@ -1343,10 +1347,9 @@ async function updateBadge(origin) {
       }
     }
     
-    // Show origin-specific count, fallback to total count
+    // Show only origin-specific count, no fallback to total count
     const badgeText = newCountForOrigin > 0 ? `!${newCountForOrigin}` : 
-                     (originCount > 0 ? originCount.toString() : 
-                     (totalCount > 0 ? totalCount.toString() : ''));
+                     (originCount > 0 ? originCount.toString() : '');
     
     await debugLog(`Badge text: ${badgeText} (origin: ${originCount}, new: ${newCountForOrigin}, total: ${totalCount})`);
     
@@ -1356,8 +1359,7 @@ async function updateBadge(origin) {
     
     await chrome.action.setBadgeBackgroundColor({
       color: newCountForOrigin > 0 ? '#ff6600' : 
-             (originCount > 0 ? '#ff0000' : 
-             (totalCount > 0 ? '#ff0000' : '#00ff00'))
+             (originCount > 0 ? '#ff0000' : '#6c757d')
     });
   } catch (error) {
     console.error('Error updating badge:', error);
@@ -1957,6 +1959,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
     try {
       const origin = new URL(tab.url).origin;
       
+      // Check if origin is denied
+      const isDenied = await isOriginDenied(tab.url);
+      if (isDenied) {
+        // Clear badge for denied origins
+        await chrome.action.setBadgeText({ text: '' });
+        await chrome.action.setBadgeBackgroundColor({ color: '#6c757d' });
+        return;
+      }
+      
       // Clear new findings for this origin when switching tabs
       clearNewFindingsForOrigin(origin);
       
@@ -2013,7 +2024,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
       // Update badge after page scan
       try {
         const origin = new URL(tab.url).origin;
-        await updateBadge(origin);
+        
+        // Check if origin is denied
+        const isDenied = await isOriginDenied(tab.url);
+        if (isDenied) {
+          // Clear badge for denied origins
+          await chrome.action.setBadgeText({ text: '' });
+          await chrome.action.setBadgeBackgroundColor({ color: '#6c757d' });
+        } else {
+          await updateBadge(origin);
+        }
       } catch (urlError) {
         await debugLog('Error updating badge after page scan:', urlError.message);
       }
