@@ -575,6 +575,12 @@ const processedUrls = new Map(); // URL -> timestamp
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 const newFindings = new Set(); // Track new findings for notifications
 
+// Notification grouping by origin
+const notificationQueue = new Map(); // origin -> { count: number, timer: timeout }
+const NOTIFICATION_DEBOUNCE = 2000; // 2 seconds debounce for notifications
+const MAX_NOTIFICATIONS_PER_ORIGIN = 5; // Maximum notifications per origin per session
+const notifiedOrigins = new Set(); // Track origins that have been notified
+
 // Clear old cache entries on startup
 const now = Date.now();
 for (const [key, timestamp] of processedUrls.entries()) {
@@ -583,10 +589,35 @@ for (const [key, timestamp] of processedUrls.entries()) {
   }
 }
 
+// Cleanup on extension unload
+chrome.runtime.onSuspend.addListener(() => {
+  clearNotificationQueue();
+  console.log('[SecretRadar] Extension unloaded, cleanup completed');
+});
+
+// Reset notification tracking on extension startup
+chrome.runtime.onStartup.addListener(() => {
+  notifiedOrigins.clear();
+  console.log('[SecretRadar] Extension started, notification tracking reset');
+});
+
 // Function to clear cache manually
 function clearCache() {
   processedUrls.clear();
   console.log('[SecretRadar] Cache cleared');
+}
+
+// Function to clear notification queue
+function clearNotificationQueue() {
+  // Clear all timers
+  for (const [origin, entry] of notificationQueue.entries()) {
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+    }
+  }
+  notificationQueue.clear();
+  notifiedOrigins.clear();
+  console.log('[SecretRadar] Notification queue and tracking cleared');
 }
 
 // Debounce function for performance
@@ -1188,9 +1219,9 @@ async function storeFindings(findings, origin) {
         const findingId = `${finding.type}-${finding.match}-${finding.source}`;
         newFindings.add(findingId);
         
-        // Show notification for high-confidence findings
+        // Queue notification for high-confidence findings (grouped by origin)
         if (finding.confidence >= 0.8) {
-          await showNotification(finding);
+          await queueNotification(finding);
         }
       } else {
         // Log duplicate detection for debugging
@@ -1243,7 +1274,75 @@ async function updateBadge(origin) {
   }
 }
 
-// Show notification for high-confidence findings
+// Queue notification for grouping by origin
+async function queueNotification(finding) {
+  try {
+    const origin = finding.parentOrigin;
+    
+    // Check if we've already notified this origin too many times
+    if (notifiedOrigins.has(origin)) {
+      await debugLog(`Skipping notification for ${origin} - already notified in this session`);
+      return;
+    }
+    
+    // Get existing queue entry or create new one
+    let queueEntry = notificationQueue.get(origin);
+    if (!queueEntry) {
+      queueEntry = { count: 0, timer: null };
+      notificationQueue.set(origin, queueEntry);
+    }
+    
+    // Increment count
+    queueEntry.count++;
+    
+    // Clear existing timer
+    if (queueEntry.timer) {
+      clearTimeout(queueEntry.timer);
+    }
+    
+    // Set new timer to show grouped notification
+    queueEntry.timer = setTimeout(async () => {
+      await showGroupedNotification(origin, queueEntry.count);
+      notificationQueue.delete(origin);
+      // Mark this origin as notified to prevent spam
+      notifiedOrigins.add(origin);
+    }, NOTIFICATION_DEBOUNCE);
+    
+    await debugLog(`Queued notification for ${origin}, count: ${queueEntry.count}`);
+  } catch (error) {
+    console.error('Error queuing notification:', error);
+  }
+}
+
+// Show grouped notification for origin
+async function showGroupedNotification(origin, count) {
+  try {
+    const settings = await chrome.storage.local.get(['enableNotifications', 'debugMode']);
+    
+    await debugLog(`Showing grouped notification for ${origin} with ${count} findings`);
+    
+    // Show browser notification if enabled
+    if (settings.enableNotifications) {
+      await debugLog('Creating grouped browser notification...');
+      const notificationId = await chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon48.png',
+        title: 'SecretRadar Security Alert',
+        message: `${count} high-confidence secrets detected on ${origin}`
+      });
+      await debugLog('Grouped notification created with ID:', notificationId);
+    } else {
+      await debugLog('Notifications are disabled in settings');
+    }
+    
+    // Update badge
+    await updateBadge(origin);
+  } catch (error) {
+    await debugLog('Error showing grouped notification:', error);
+  }
+}
+
+// Show notification for high-confidence findings (legacy - now replaced by queueNotification)
 async function showNotification(finding) {
   try {
     const settings = await chrome.storage.local.get(['enableNotifications', 'debugMode']);
