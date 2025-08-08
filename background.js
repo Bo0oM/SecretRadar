@@ -601,6 +601,23 @@ chrome.runtime.onStartup.addListener(() => {
   console.log('[SecretRadar] Extension started, notification tracking reset');
 });
 
+// Handle extension icon click to clear new findings for current tab
+chrome.action.onClicked.addListener(async (tab) => {
+  try {
+    if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      return;
+    }
+    
+    const origin = new URL(tab.url).origin;
+    clearNewFindingsForOrigin(origin);
+    await updateBadge(origin);
+    
+    await debugLog(`Cleared new findings for ${origin} on icon click`);
+  } catch (error) {
+    await debugLog('Error handling icon click:', error);
+  }
+});
+
 // Function to clear cache manually
 function clearCache() {
   processedUrls.clear();
@@ -618,6 +635,39 @@ function clearNotificationQueue() {
   notificationQueue.clear();
   notifiedOrigins.clear();
   console.log('[SecretRadar] Notification queue and tracking cleared');
+}
+
+// Function to clear new findings for specific origin
+function clearNewFindingsForOrigin(origin) {
+  const findingsToRemove = [];
+  
+  for (const findingId of newFindings) {
+    // Extract origin from findingId (format: "type-match-source")
+    const parts = findingId.split('-');
+    if (parts.length >= 3) {
+      const source = parts.slice(2).join('-'); // Reconstruct source
+      try {
+        const sourceOrigin = new URL(source).origin;
+        if (sourceOrigin === origin) {
+          findingsToRemove.push(findingId);
+        }
+      } catch (urlError) {
+        // If source is not a URL, check if it contains the origin
+        if (source.includes(origin)) {
+          findingsToRemove.push(findingId);
+        }
+      }
+    }
+  }
+  
+  // Remove findings for this origin
+  for (const findingId of findingsToRemove) {
+    newFindings.delete(findingId);
+  }
+  
+  if (findingsToRemove.length > 0) {
+    console.log(`[SecretRadar] Cleared ${findingsToRemove.length} new findings for ${origin}`);
+  }
 }
 
 // Debounce function for performance
@@ -1240,34 +1290,74 @@ async function storeFindings(findings, origin) {
     }
     
     await chrome.storage.local.set({ findings: existingFindings });
+    
+    // Update badge after storing findings
+    if (findings.length > 0 && findings[0].parentOrigin) {
+      await updateBadge(findings[0].parentOrigin);
+    }
   } catch (error) {
     console.error('Error storing findings:', error);
   }
 }
 
-// Update badge with finding count
+// Update badge with finding count for specific origin
 async function updateBadge(origin) {
   try {
+    await debugLog(`Updating badge for origin: ${origin}`);
+    
     const storage = await chrome.storage.local.get(['findings']);
     
-    // Count all findings across all origins/URLs
+    // Count findings for the specific origin
+    let originCount = 0;
     let totalCount = 0;
+    
     if (storage.findings) {
       for (const key in storage.findings) {
-        totalCount += storage.findings[key].length;
+        const findings = storage.findings[key];
+        totalCount += findings.length;
+        
+        // Count findings for this specific origin
+        const originFindings = findings.filter(finding => finding.parentOrigin === origin);
+        originCount += originFindings.length;
       }
     }
     
-    // Show new findings count if any
-    const newCount = newFindings.size;
-    const badgeText = newCount > 0 ? `!${newCount}` : (totalCount > 0 ? totalCount.toString() : '');
+    // Count new findings for this origin
+    let newCountForOrigin = 0;
+    for (const findingId of newFindings) {
+      // Extract origin from findingId (format: "type-match-source")
+      const parts = findingId.split('-');
+      if (parts.length >= 3) {
+        const source = parts.slice(2).join('-'); // Reconstruct source
+        try {
+          const sourceOrigin = new URL(source).origin;
+          if (sourceOrigin === origin) {
+            newCountForOrigin++;
+          }
+        } catch (urlError) {
+          // If source is not a URL, check if it contains the origin
+          if (source.includes(origin)) {
+            newCountForOrigin++;
+          }
+        }
+      }
+    }
+    
+    // Show origin-specific count, fallback to total count
+    const badgeText = newCountForOrigin > 0 ? `!${newCountForOrigin}` : 
+                     (originCount > 0 ? originCount.toString() : 
+                     (totalCount > 0 ? totalCount.toString() : ''));
+    
+    await debugLog(`Badge text: ${badgeText} (origin: ${originCount}, new: ${newCountForOrigin}, total: ${totalCount})`);
     
     await chrome.action.setBadgeText({
       text: badgeText
     });
     
     await chrome.action.setBadgeBackgroundColor({
-      color: newCount > 0 ? '#ff6600' : (totalCount > 0 ? '#ff0000' : '#00ff00')
+      color: newCountForOrigin > 0 ? '#ff6600' : 
+             (originCount > 0 ? '#ff0000' : 
+             (totalCount > 0 ? '#ff0000' : '#00ff00'))
     });
   } catch (error) {
     console.error('Error updating badge:', error);
@@ -1828,6 +1918,8 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     
+    await debugLog(`Tab activated: ${tab?.url || 'no URL'}`);
+    
     // Handle cases where tab is not available
     if (!tab) {
       // Clear badge for unavailable tabs
@@ -1861,11 +1953,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       return;
     }
     
-
-    
     // Handle invalid URLs
     try {
       const origin = new URL(tab.url).origin;
+      
+      // Clear new findings for this origin when switching tabs
+      clearNewFindingsForOrigin(origin);
+      
       await updateBadge(origin);
     } catch (urlError) {
       await debugLog('Invalid URL in tab activation:', tab.url);
@@ -1915,6 +2009,14 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         target: { tabId: tabId },
         function: scanPageContent
       });
+      
+      // Update badge after page scan
+      try {
+        const origin = new URL(tab.url).origin;
+        await updateBadge(origin);
+      } catch (urlError) {
+        await debugLog('Error updating badge after page scan:', urlError.message);
+      }
     } catch (scriptError) {
       await debugLog('Script injection failed (CSP restriction):', scriptError.message);
     }
