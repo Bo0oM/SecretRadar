@@ -39,6 +39,13 @@
                     <h2>Actions</h2>
                 </div>
                 <div class="actions-grid">
+                    <button id="forceScan" class="btn btn-warning">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 2l-2 20-7.5-5-7.5 5L2 2z"></path>
+                        </svg>
+                        Force Scan
+                    </button>
+                    
                     <button id="exportFindings" class="btn btn-outline">
                         <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -92,6 +99,15 @@
                             <span class="toggle-text">Scan External Scripts</span>
                         </label>
                         <span class="setting-description">Check external JavaScript files for secrets</span>
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="scanSourceMaps" checked>
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-text">Scan Source Maps</span>
+                        </label>
+                        <span class="setting-description">Analyze source maps for original code with better context</span>
                     </div>
 
                     <div class="setting-item">
@@ -194,6 +210,7 @@
                 </div>
 
                 <div class="advanced-actions">
+                    <button id="clearCache" class="btn btn-warning">Clear Cache</button>
                     <button id="clearAllData" class="btn btn-danger">Clear All Data</button>
                     <button id="resetSettings" class="btn btn-secondary">Reset Settings</button>
                 </div>

@@ -6,17 +6,17 @@ const VERSION = "1.0.0";
 const SECRET_PATTERNS = {
   // API Keys with improved validation
   "AWS Access Key": {
-    pattern: /AKIA[0-9A-Z]{16}/g,
+    pattern: /[\\w.-]{0,50}?(?:aws|AWS)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(AKIA[0-9A-Z]{16})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
     context: ["aws", "amazon", "cloud"]
   },
   "AWS Secret Key": {
-    pattern: /["']?[aA][wW][sS][_][sS][eE][cC][rR][eE][tT][_][aA][cC][cC][eE][sS][sS][_][kK][eE][yY]["']?\s*[:=]\s*["']([A-Za-z0-9\/+=]{40})["']/g,
+    pattern: /[\\w.-]{0,50}?(?:aws|AWS)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}([A-Za-z0-9\\/+=]{40})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
     context: ["aws", "amazon", "secret", "key"]
   },
   "GitHub Personal Access Token": {
-    pattern: /ghp_[a-zA-Z0-9]{36}/g,
+    pattern: /[\\w.-]{0,50}?(?:github|GITHUB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(ghp_[a-zA-Z0-9]{36})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
     context: ["github", "personal", "access"]
   },
@@ -26,12 +26,21 @@ const SECRET_PATTERNS = {
     context: ["gitlab", "personal", "access"]
   },
   "Slack Token": {
-    pattern: /xox[pboa]-[0-9]{12}-[0-9]{12}-[0-9]{12}-[a-z0-9]{32}/g,
+    pattern: /[\\w.-]{0,50}?(?:slack|SLACK)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(xox[pboa]-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-z0-9]{24,36})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
-    context: ["slack", "token"]
+    context: ["slack", "token"],
+    validation: (match, context) => {
+      // Check if it's a real Slack token (not just a pattern match)
+      const slackKeywords = ['slack', 'token', 'bot', 'webhook', 'xox'];
+      const hasSlackContext = slackKeywords.some(keyword => 
+        context.surroundingText.toLowerCase().includes(keyword)
+      );
+      
+      return hasSlackContext;
+    }
   },
   "Stripe API Key": {
-    pattern: /sk_(live|test)_[a-zA-Z0-9]{24}/g,
+    pattern: /[\\w.-]{0,50}?(?:stripe|STRIPE)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(sk_(live|test)_[a-zA-Z0-9]{24})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
     context: ["stripe", "payment", "api"]
   },
@@ -41,27 +50,27 @@ const SECRET_PATTERNS = {
     context: ["stripe", "publishable", "public"]
   },
   "JWT Token": {
-    pattern: /eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/g,
+    pattern: /[\\w.-]{0,50}?(?:jwt|JWT)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(eyJ[A-Za-z0-9-_=]+\\.[A-Za-z0-9-_=]+\\.?[A-Za-z0-9-_.+/=]*)(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "low",
     context: ["jwt", "token", "bearer"]
   },
   "Private Key (RSA)": {
-    pattern: /-----BEGIN RSA PRIVATE KEY-----[\s\S]*?-----END RSA PRIVATE KEY-----/g,
+    pattern: /-----BEGIN RSA PRIVATE KEY-----(?:.|\n)*?-----END RSA PRIVATE KEY-----/g,
     confidence: "high",
     context: ["private", "key", "rsa", "ssh"]
   },
   "Private Key (DSA)": {
-    pattern: /-----BEGIN DSA PRIVATE KEY-----[\s\S]*?-----END DSA PRIVATE KEY-----/g,
+    pattern: /-----BEGIN DSA PRIVATE KEY-----(?:.|\n)*?-----END DSA PRIVATE KEY-----/g,
     confidence: "high",
     context: ["private", "key", "dsa", "ssh"]
   },
   "Private Key (EC)": {
-    pattern: /-----BEGIN EC PRIVATE KEY-----[\s\S]*?-----END EC PRIVATE KEY-----/g,
+    pattern: /-----BEGIN EC PRIVATE KEY-----(?:.|\n)*?-----END EC PRIVATE KEY-----/g,
     confidence: "high",
     context: ["private", "key", "ec", "elliptic"]
   },
   "PGP Private Key": {
-    pattern: /-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]*?-----END PGP PRIVATE KEY BLOCK-----/g,
+    pattern: /-----BEGIN PGP PRIVATE KEY BLOCK-----(?:.|\n)*?-----END PGP PRIVATE KEY BLOCK-----/g,
     confidence: "high",
     context: ["pgp", "gpg", "private"]
   },
@@ -126,9 +135,29 @@ const SECRET_PATTERNS = {
     context: ["discord", "bot", "token"]
   },
   "Google API Key": {
-    pattern: /AIza[0-9A-Za-z\\-_]{35}/g,
+    pattern: /[\\w.-]{0,50}?(?:google|GOOGLE)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(AIza[0-9A-Za-z\\-_]{35})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
     confidence: "high",
     context: ["google", "api", "key", "maps", "analytics"]
+  },
+  "Google Client ID": {
+    pattern: /[0-9]+-[a-zA-Z0-9]+\.apps\.googleusercontent\.com/g,
+    confidence: "high",
+    context: ["google", "client", "id", "oauth"]
+  },
+  "Giphy API Key Variable": {
+    pattern: /["']?[gG][iI][pP][hH][yY][_][aA][pP][iI][_][kK][eE][yY]["']?\s*[:=]\s*["']([a-zA-Z0-9]{32})["']/g,
+    confidence: "high",
+    context: ["giphy", "api", "key", "gif"]
+  },
+  "Railway API Key Variable": {
+    pattern: /["']?[rR][aA][iI][lL][wW][aA][yY][_][aA][pP][iI][_][kK][eE][yY]["']?\s*[:=]\s*["']([a-zA-Z0-9]{8,})["']/g,
+    confidence: "high",
+    context: ["railway", "api", "key"]
+  },
+  "Amadeus API Key Variable": {
+    pattern: /["']?[aA][mM][aA][dD][eE][uU][sS][_][aA][pP][iI][_][kK][eE][yY]["']?\s*[:=]\s*["']([a-zA-Z0-9]{32})["']/g,
+    confidence: "high",
+    context: ["amadeus", "api", "key"]
   },
   
   // Database credentials
@@ -177,9 +206,14 @@ const SECRET_PATTERNS = {
     context: ["mysql", "database", "connection", "url"]
   },
   "MongoDB URL": {
-    pattern: /mongodb:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+:\d+\/[a-zA-Z0-9_-]+/g,
+    pattern: /mongodb(?:\+srv)?:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?:\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
     context: ["mongodb", "database", "connection", "url"]
+  },
+  "Redis URL": {
+    pattern: /redis:\/\/[^@]*@[a-zA-Z0-9.-]+:\d+/g,
+    confidence: "high",
+    context: ["redis", "database", "connection", "url"]
   },
   
   // CI/CD and Registry credentials
@@ -216,12 +250,12 @@ const SECRET_PATTERNS = {
   
   // Generic patterns for any service secrets
   "Generic Secret": {
-    pattern: /["']?[sS][eE][cC][rR][eE][tT["']?\s*[:=]\s*["']([0-9a-zA-Z]{32,45})["']/g,
+    pattern: /["']?[sS][eE][cC][rR][eE][tT]["']?\s*[:=]\s*["']([0-9a-zA-Z]{28,45})["']/g,
     confidence: "low",
     context: ["secret", "password", "token"]
   },
   "Generic Password": {
-    pattern: /["']?[pP][aA][sS][sS][wW][oO][rR][dD]["']?\s*[:=]\s*["']([^"']{8,})["']/g,
+    pattern: /["']?[pP][aA][sS][sS][wW][oO][rR][dD]["']?\s*[:=]\s*["']([^"']{8,60})["']/g,
     confidence: "low",
     context: ["password", "pass", "pwd"],
     validation: (match, context) => {
@@ -249,21 +283,24 @@ const SECRET_PATTERNS = {
       return true;
     }
   },
-  "Generic API Key": {
-    pattern: /["']?[a-zA-Z_]+_KEY["']?\s*[:=]\s*["']([a-zA-Z0-9_-]{20,})["']/g,
+
+  "Environment Variable API Key": {
+    pattern: /export\s+[A-Z_]+_API_KEY\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/g,
     confidence: "high",
-    context: ["key", "api", "secret", "token"]
+    context: ["export", "api", "key", "environment"]
   },
-  "Generic Secret Key": {
-    pattern: /["']?[a-zA-Z_]+_SECRET_KEY["']?\s*[:=]\s*["']([a-zA-Z0-9_-]{20,})["']/g,
+  "Environment Variable Key": {
+    pattern: /export\s+[A-Z_]+_KEY\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/g,
     confidence: "high",
-    context: ["secret", "key", "api", "token"]
+    context: ["export", "key", "environment"]
   },
-  "Generic Token": {
-    pattern: /["']?[a-zA-Z_]+_TOKEN["']?\s*[:=]\s*["']([a-zA-Z0-9_-]{20,})["']/g,
+
+  "Shell Variable API Key": {
+    pattern: /[a-zA-Z_]+_api_key\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/g,
     confidence: "high",
-    context: ["token", "api", "secret", "key"]
+    context: ["api", "key", "shell", "variable"]
   },
+
   "Generic Password Variable": {
     pattern: /["']?[a-zA-Z_]+_PASSWORD["']?\s*[:=]\s*["']([^"']{8,})["']/g,
     confidence: "high",
@@ -276,25 +313,25 @@ const SECRET_PATTERNS = {
   },
   
   "Firebase Config": {
-    pattern: /apiKey:\s*["']([^"']{39})["']/g,
+    pattern: /apiKey:\\s*["']([^"']{39,43})["']/g,
     confidence: "high",
     context: ["firebase", "config", "api"]
   },
   
   "Slack Webhook URL": {
-    pattern: /https:\/\/hooks\.slack\.com\/services\/[A-Z0-9]+\/[A-Z0-9]+\/[a-zA-Z0-9]+/g,
+    pattern: /(?:https?:\/\/)?hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9+\/]{43,56}/g,
     confidence: "high",
     context: ["slack", "webhook", "url"]
   },
   
   "SendGrid API Key": {
-    pattern: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/g,
+    pattern: /SG\\.[a-zA-Z0-9_-]{22}\\.[a-zA-Z0-9_-]{69,}/g,
     confidence: "high",
     context: ["sendgrid", "email", "api"]
   },
   
   "Algolia API Key": {
-    pattern: /(?:algolia|ALGOLIA).*?["']([a-zA-Z0-9]{32})["']/g,
+    pattern: /(?:algolia|ALGOLIA)[^"']*["']([a-zA-Z0-9]{32})["']/g,
     confidence: "high",
     context: ["algolia", "search", "api"]
   },
@@ -333,6 +370,120 @@ const SECRET_PATTERNS = {
     pattern: /["']?encryption_key["']?\s*[:=]\s*["']([a-zA-Z0-9_-]{20,})["']/g,
     confidence: "high",
     context: ["encryption", "key", "crypto"]
+  },
+
+  // New patterns based on gitleaks
+  "Discord Bot Token": {
+    pattern: /[\\w.-]{0,50}?(?:discord|DISCORD)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}([A-Za-z0-9_-]{23,28}\\.[A-Za-z0-9_-]{6,7}\\.[A-Za-z0-9_-]{27})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["discord", "bot", "token"]
+  },
+
+  "Telegram Bot Token": {
+    pattern: /[\\w.-]{0,50}?(?:telegram|TELEGRAM)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}([0-9]{8,10}:[A-Za-z0-9_-]{35})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["telegram", "bot", "token"]
+  },
+
+  "Slack Bot Token": {
+    pattern: /xoxb-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-z0-9]{24,36}/g,
+    confidence: "high",
+    context: ["slack", "bot", "token"]
+  },
+
+  "GitLab Personal Access Token": {
+    pattern: /[\\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(glpat-[A-Za-z0-9_-]{20})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["gitlab", "personal", "access", "token"]
+  },
+
+  "GitLab Pipeline Trigger Token": {
+    pattern: /[\\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(glptt-[A-Za-z0-9_-]{20})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["gitlab", "pipeline", "trigger", "token"]
+  },
+
+  "GitLab Deploy Token": {
+    pattern: /[\\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(gldt-[A-Za-z0-9_-]{20})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["gitlab", "deploy", "token"]
+  },
+
+  "GitLab Runner Token": {
+    pattern: /[\\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(glrt-[A-Za-z0-9_-]{20})(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["gitlab", "runner", "token"]
+  },
+
+  "GitLab Deploy Key": {
+    pattern: /[\\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \\t\\w.-]{0,20})[\\s'"`]{0,3}(?:=|>|:{1,3}=|\\|\\||:|=>|\\?=|,)[`'"\\s=]{0,5}(ssh-rsa [A-Za-z0-9+/=]+)(?:[`'"\\s;]|\\\\[nr]|$)/gi,
+    confidence: "high",
+    context: ["gitlab", "deploy", "key", "ssh"]
+  },
+  
+  // Generic patterns - placed at the end to avoid false positives
+  // These are more flexible but should be checked after specific patterns
+  "Generic API Key": {
+    pattern: /(?<![a-zA-Z0-9])[aA][pP][iI][-_]?[kK][eE][yY][-_]?[a-zA-Z0-9]*\s*[:=]\s*['"`]([a-zA-Z0-9_-]{32,45})['"`]/g,
+    confidence: "medium", // Lower confidence for generic patterns
+    context: ["key", "api", "secret", "token"],
+    validation: (match, context) => {
+      // Additional validation to reduce false positives
+      const value = match[0];
+      // Skip if it looks like a test/example key
+      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+        return false;
+      }
+      // Extract the actual secret value (group 1)
+      const secretValue = match[1];
+      if (!secretValue) return false;
+      
+      // Skip if the secret value is too short or too long
+      if (secretValue.length < 32 || secretValue.length > 45) {
+        return false;
+      }
+      return true;
+    }
+  },
+  "Generic Secret": {
+    pattern: /(?<![a-zA-Z0-9])[sS][eE][cC][rR][eE][tT][-_]?[a-zA-Z0-9]*\s*[:=]\s*['"`]([a-zA-Z0-9_-]{32,45})['"`]/g,
+    confidence: "medium",
+    context: ["secret", "key", "api", "token"],
+    validation: (match, context) => {
+      const value = match[0];
+      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+        return false;
+      }
+      // Extract the actual secret value (group 1)
+      const secretValue = match[1];
+      if (!secretValue) return false;
+      
+      // Skip if the secret value is too short or too long
+      if (secretValue.length < 32 || secretValue.length > 45) {
+        return false;
+      }
+      return true;
+    }
+  },
+  "Generic Token": {
+    pattern: /(?<![a-zA-Z0-9])[tT][oO][kK][eE][nN][-_]?[a-zA-Z0-9]*\s*[:=]\s*['"`]([a-zA-Z0-9_-]{32,45})['"`]/g,
+    confidence: "medium",
+    context: ["token", "api", "secret", "key"],
+    validation: (match, context) => {
+      const value = match[0];
+      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+        return false;
+      }
+      // Extract the actual secret value (group 1)
+      const secretValue = match[1];
+      if (!secretValue) return false;
+      
+      // Skip if the secret value is too short or too long
+      if (secretValue.length < 32 || secretValue.length > 45) {
+        return false;
+      }
+      return true;
+    }
   }
 };
 
@@ -340,6 +491,7 @@ const SECRET_PATTERNS = {
 
 // False positive patterns to exclude
 const FALSE_POSITIVE_PATTERNS = [
+  // Test/Example/Demo patterns
   /AIDAAAAAAAAAAAAAAAAA/, // AWS test key
   /AKIAIOSFODNN7EXAMPLE/, // AWS example key
   /wJalrXUtnFEMI\/K7MDENG\/bPxRfiCYEXAMPLEKEY/, // AWS example secret
@@ -351,7 +503,9 @@ const FALSE_POSITIVE_PATTERNS = [
   /7cd4636c-0d25-47d2-9b31-0be7ae5347ed/, // Heroku example key
   /84593b65-0ef6-4a72-891c-d351ddd50aab/, // Heroku example key
   /d38548a411a38fc85ffd3f0f5ccc57f76c0c9385/, // Example hash
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/, // Generic UUID pattern (too broad)
+  
+  // Generic patterns that are too broad
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/, // Generic UUID pattern
   
   // UI text patterns that should not be detected as passwords
   /password:"Reset Password"/, // Common UI text
@@ -369,11 +523,71 @@ const FALSE_POSITIVE_PATTERNS = [
   /password:"Current Password"/, // Common UI text
   /password:"Repeat Password"/, // Common UI text
   /password:"Password Confirmation"/, // Common UI text
+  
+  // Additional false positive patterns for comprehensive testing
+  /test_key_1234567890/, // Test key pattern
+  /example_secret_1234567890/, // Example secret pattern
+  /demo_token_1234567890/, // Demo token pattern
+  /short123/, // Too short keys
+  /secret123/, // Too short secrets
+  /token123/, // Too short tokens
+  /mini123/, // Too short keys
+  /tiny123/, // Too short secrets
+  
+  // Common UI text variations
+  /"Reset Password"/, // UI text
+  /"Enter Password"/, // UI text
+  /"Type your password"/, // UI text
+  /"Continue with Password"/, // UI text
+  /"Forgot Password"/, // UI text
+  
+  // Common variable names that are not secrets
+  /APP_NAME/, // Application name
+  /APP_VERSION/, // Version
+  /DEBUG_MODE/, // Debug flag
+  /LOG_LEVEL/, // Log level
+  /PORT/, // Port number
+  
+  // Timestamps and IDs
+  /1640995200/, // Unix timestamp
+  /12345/, // Numeric ID
+  /67890/, // Numeric ID
+  /11111/, // Numeric ID
+  
+  // Common strings
+  /"Acme Corp"/, // Company name
+  /"https:\/\/example\.com"/, // Website URL
+  /"support@example\.com"/, // Email
+  
+  // Comment patterns
+  /#.*API_KEY=not_a_real_key/, // Comment with fake key
+  /#.*SECRET=also_not_real/, // Comment with fake secret
+  /#.*JWT token example:/, // Comment with example
+  
+  // Multiline config patterns
+  /api_key: not_a_real_key/, // Fake key in config
+  /secret: also_not_real/, // Fake secret in config
+  /token: fake_token/, // Fake token in config
 ];
 
 // Performance optimization: Cache for processed URLs with timestamp
 const processedUrls = new Map(); // URL -> timestamp
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+const newFindings = new Set(); // Track new findings for notifications
+
+// Clear old cache entries on startup
+const now = Date.now();
+for (const [key, timestamp] of processedUrls.entries()) {
+  if (now - timestamp > CACHE_DURATION) {
+    processedUrls.delete(key);
+  }
+}
+
+// Function to clear cache manually
+function clearCache() {
+  processedUrls.clear();
+  console.log('[SecretRadar] Cache cleared');
+}
 
 // Debounce function for performance
 // Debug logging helper function
@@ -392,14 +606,14 @@ function debounce(func, wait) {
   return function executedFunction(...args) {
     const later = () => {
       clearTimeout(timeout);
-      func(...args);
+      return func(...args);
     };
     clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
 }
 
-// JWT Decoder function
+// JWT Decoder function with enhanced time analysis
 function decodeJWT(jwt) {
   try {
     const parts = jwt.split('.');
@@ -409,30 +623,81 @@ function decodeJWT(jwt) {
     const header = JSON.parse(atob(parts[0].replace(/-/g, '+').replace(/_/g, '/')));
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     
+    // Token lifetime analysis
+    const now = Math.floor(Date.now() / 1000);
+    let tokenAnalysis = {
+      isExpired: false,
+      isLongLived: false,
+      expiresIn: null,
+      age: null,
+      lifetime: null
+    };
+    
+    // Check expiration time (exp)
+    if (payload.exp) {
+      const expiresAt = payload.exp;
+      const expiresIn = expiresAt - now;
+      
+      tokenAnalysis.isExpired = expiresIn < 0;
+      tokenAnalysis.expiresIn = expiresIn;
+      
+      // If token is not expired, calculate lifetime
+      if (!tokenAnalysis.isExpired) {
+        tokenAnalysis.lifetime = expiresIn;
+        
+        // Token is considered long-lived if > 24 hours
+        tokenAnalysis.isLongLived = expiresIn > 86400; // 24 hours in seconds
+      }
+    }
+    
+    // Check issued at time (iat)
+    if (payload.iat) {
+      const issuedAt = payload.iat;
+      const age = now - issuedAt;
+      tokenAnalysis.age = age;
+      
+      // If no exp but iat exists, we can estimate lifetime
+      if (!payload.exp && age > 86400) {
+        tokenAnalysis.isLongLived = true;
+      }
+    }
+    
     return {
       header,
       payload,
-      signature: parts[2]
+      signature: parts[2],
+      analysis: tokenAnalysis
     };
   } catch (error) {
     return null;
   }
 }
 
-// Enhanced secret detection with context analysis
-async function detectSecrets(content, source, parentUrl, parentOrigin) {
-  const findings = [];
-  const lines = content.split('\n');
-  
-  // Check debug mode
-  const settings = await chrome.storage.local.get(['debugMode']);
-  const isDebugMode = settings.debugMode || false;
+  // Enhanced secret detection with context analysis
+  async function detectSecrets(content, source, parentUrl, parentOrigin) {
+    const findings = [];
+    const lines = content.split('\n');
+    
+    // Check debug mode
+    const settings = await chrome.storage.local.get(['debugMode', 'confidenceThreshold']);
+    const isDebugMode = settings.debugMode || false;
+    
+
+    
+    await debugLog(`Scanning content from ${source} (${content.length} chars, ${lines.length} lines)`);
+    if (isDebugMode) {
+      await debugLog(`Content preview: ${content.substring(0, 200)}...`);
+    }
+    await debugLog(`Settings:`, settings);
   
   for (const [secretType, config] of Object.entries(SECRET_PATTERNS)) {
     try {
       const matches = content.matchAll(config.pattern);
+      let matchCount = 0;
       
       for (const match of matches) {
+        matchCount++;
+        await debugLog(`Found match for ${secretType}:`, match[0]);
         
         const matchedValue = match[0];
         
@@ -457,6 +722,9 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
         
         const confidence = calculateConfidence(config, context, matchedValue);
         
+        await debugLog(`Confidence for ${secretType}: ${confidence}`);
+        console.log('[SecretRadar Debug] Secret found:', { type: secretType, value: matchedValue.substring(0, 20) + '...', confidence });
+        
         if (confidence > 0.3) { // Minimum confidence threshold
           let displayValue = matchedValue;
           
@@ -468,8 +736,26 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
               if (decoded.payload.sub) payloadInfo.push(`sub: ${decoded.payload.sub}`);
               if (decoded.payload.iss) payloadInfo.push(`iss: ${decoded.payload.iss}`);
               if (decoded.payload.aud) payloadInfo.push(`aud: ${decoded.payload.aud}`);
-              if (decoded.payload.exp) payloadInfo.push(`exp: ${new Date(decoded.payload.exp * 1000).toISOString()}`);
               if (decoded.payload.email) payloadInfo.push(`email: ${decoded.payload.email}`);
+              
+              // Add lifetime information
+              if (decoded.analysis) {
+                if (decoded.analysis.isExpired) {
+                  payloadInfo.push(`EXPIRED`);
+                } else if (decoded.analysis.expiresIn !== null) {
+                  const hours = Math.floor(decoded.analysis.expiresIn / 3600);
+                  const days = Math.floor(hours / 24);
+                  if (days > 0) {
+                    payloadInfo.push(`expires in ${days}d ${hours % 24}h`);
+                  } else {
+                    payloadInfo.push(`expires in ${hours}h`);
+                  }
+                }
+                
+                if (decoded.analysis.isLongLived) {
+                  payloadInfo.push(`LONG-LIVED`);
+                }
+              }
               
               displayValue = `${matchedValue.substring(0, 50)}... (${payloadInfo.join(', ')})`;
             } else {
@@ -481,7 +767,7 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
             type: secretType,
             match: matchedValue,
             displayValue: displayValue,
-            source: source || 'Unknown source',
+            source: parentUrl || source || 'Unknown source',
             confidence: confidence,
             context: context,
             parentUrl: parentUrl || 'Unknown URL',
@@ -490,11 +776,28 @@ async function detectSecrets(content, source, parentUrl, parentOrigin) {
           });
         }
       }
-    } catch (error) {
-      if (isDebugMode) {
-        console.error(`Error processing pattern for ${secretType}:`, error);
+      
+      if (matchCount > 0) {
+        await debugLog(`Found ${matchCount} matches for ${secretType}`);
       }
+    } catch (error) {
+      console.error(`Error processing ${secretType}:`, error);
+      await debugLog(`Error processing ${secretType}:`, error);
     }
+  }
+  
+
+  
+  await debugLog(`Total findings: ${findings.length}`);
+  if (findings.length > 0) {
+    await debugLog(`Findings:`, findings.map(f => `${f.type}: ${f.match.substring(0, 50)}...`));
+  }
+  
+  return findings;
+  
+  await debugLog(`Total findings: ${findings.length}`);
+  if (findings.length > 0) {
+    await debugLog(`Findings:`, findings.map(f => `${f.type}: ${f.match.substring(0, 50)}...`));
   }
   
   return findings;
@@ -572,6 +875,42 @@ function analyzeContext(content, match, lines) {
 function calculateConfidence(config, context, match) {
   let confidence = 0.15; // Slightly higher base confidence
   
+  // Positive keywords (increase confidence)
+  const positiveKeywords = [
+    'key', 'token', 'secret', 'password', 'auth', 'api', 'credential', 
+    'access', 'private', 'secure', 'encrypt', 'signature', 'hash',
+    'aws', 'amazon', 'google', 'github', 'stripe', 'slack', 'firebase',
+    'database', 'connection', 'endpoint', 'webhook', 'oauth', 'jwt'
+  ];
+  
+  // Negative keywords (decrease confidence)
+  const negativeKeywords = [
+    'example', 'test', 'demo', 'fake', 'mock', 'dummy', 'placeholder',
+    'documentation', 'tutorial', 'sample', 'template', 'default',
+    'not_a_real', 'also_not_real', 'fake_token', 'test_key',
+    'example_secret', 'demo_password', 'sample_api', 'template_key',
+    'placeholder_token', 'dummy_secret', 'mock_key', 'fake_credential'
+  ];
+  
+  // Check positive keywords
+  const contextText = context.surroundingText.toLowerCase();
+  const positiveMatches = positiveKeywords.filter(keyword => 
+    contextText.includes(keyword)
+  );
+  
+  if (positiveMatches.length > 0) {
+    confidence += Math.min(positiveMatches.length * 0.1, 0.3); // Maximum +0.3
+  }
+  
+  // Check negative keywords
+  const negativeMatches = negativeKeywords.filter(keyword => 
+    contextText.includes(keyword)
+  );
+  
+  if (negativeMatches.length > 0) {
+    confidence -= Math.min(negativeMatches.length * 0.15, 0.4); // Maximum -0.4
+  }
+
   // Pattern confidence (balanced)
   switch (config.confidence) {
     case 'high': confidence += 0.3; break;
@@ -608,40 +947,52 @@ function calculateConfidence(config, context, match) {
     }
   }
   
-  // Penalty for generic patterns
+  // Enhanced confidence for generic patterns with entropy analysis
   if (config.type && config.type.includes('Generic')) {
-    confidence -= 0.1; // Reduced penalty
+    // Calculate entropy for the matched value
+    const entropy = calculateShannonEntropy(match);
+    
+    // If entropy is high, increase confidence
+    if (entropy >= 4.0) {
+      confidence += (entropy - 4.0) * 0.15; // Bonus for high entropy
+    } else if (entropy < 3.0) {
+      confidence -= 0.2; // Penalty for low entropy
+    }
   }
   
-  // Special handling for JWT tokens (moderate penalty)
+  // Special handling for JWT tokens with enhanced time analysis
   if (config.type === 'JWT Token') {
     confidence = 0.4; // Higher base for JWT
     
     // Check if it's a real JWT (has proper structure)
-    const jwtParts = match.split('.');
-    if (jwtParts.length === 3) {
-      try {
-        // Try to decode header and payload
-        const header = JSON.parse(atob(jwtParts[0].replace(/-/g, '+').replace(/_/g, '/')));
-        const payload = JSON.parse(atob(jwtParts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const decoded = decodeJWT(match);
+    if (decoded && decoded.payload) {
+      // Analyze token lifetime
+      if (decoded.analysis) {
+        // If token is expired, reduce confidence
+        if (decoded.analysis.isExpired) {
+          confidence -= 0.2;
+        }
         
-        // Check if it's a short-lived token (likely auth token)
-        if (payload.exp && payload.exp < Date.now() / 1000 + 86400) { // Expires within 24 hours
+        // If token is long-lived, increase confidence
+        if (decoded.analysis.isLongLived) {
+          confidence += 0.15;
+        }
+        
+        // If token is short-lived (less than 1 hour), reduce confidence
+        if (decoded.analysis.expiresIn !== null && decoded.analysis.expiresIn < 3600) {
           confidence -= 0.1;
         }
-        
-        // Check if it's a common auth token
-        if (payload.iss && (payload.iss.includes('auth') || payload.iss.includes('login'))) {
-          confidence -= 0.1;
-        }
-        
-        // Check if it's a test/example token
-        if (payload.sub === '1234567890' || payload.sub === 'test' || payload.sub === 'example') {
-          confidence -= 0.15;
-        }
-      } catch (e) {
-        // If we can't decode it, it might not be a real JWT
+      }
+      
+      // Check if it's a common auth token
+      if (decoded.payload.iss && (decoded.payload.iss.includes('auth') || decoded.payload.iss.includes('login'))) {
         confidence -= 0.1;
+      }
+      
+      // Check if it's a test/example token
+      if (decoded.payload.sub === '1234567890' || decoded.payload.sub === 'test' || decoded.payload.sub === 'example') {
+        confidence -= 0.15;
       }
     } else {
       confidence -= 0.15; // Not a proper JWT structure
@@ -696,8 +1047,44 @@ function calculateConfidence(config, context, match) {
   return Math.min(Math.max(confidence, 0.1), 1.0);
 }
 
+// Функция расчета энтропии по Шеннону
+function calculateShannonEntropy(str) {
+  if (!str || str.length === 0) return 0;
+  
+  // Создаем карту частот символов
+  const charCount = {};
+  for (const char of str) {
+    charCount[char] = (charCount[char] || 0) + 1;
+  }
+  
+  // Рассчитываем энтропию
+  const length = str.length;
+  let entropy = 0;
+  
+  for (const char in charCount) {
+    const probability = charCount[char] / length;
+    entropy -= probability * Math.log2(probability);
+  }
+  
+  return entropy;
+}
+
+
+
+// Schedule heavy tasks when browser is idle
+function scheduleScan(func) {
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(func);
+  } else {
+    setTimeout(func, 200); // Fallback for older browsers
+  }
+}
+
 // Optimized data checking with caching
+let checkDataCallCount = 0;
 const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
+  checkDataCallCount++;
+  
   try {
     const settings = await chrome.storage.local.get(['autoScan', 'confidenceThreshold', 'debugMode']);
     
@@ -713,21 +1100,34 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
     }
     
     // Skip if already processed (with cache expiration)
-    const cacheKey = `${src}-${parentOrigin}`;
+    // Use different cache keys for scripts vs page content
+    const isScript = src.startsWith('http');
+    const cacheKey = isScript ? src : `${src}-${parentOrigin}`;
     const now = Date.now();
     const cachedTime = processedUrls.get(cacheKey);
     
-    if (cachedTime && (now - cachedTime) < CACHE_DURATION) {
+    // Allow force rescan for file:// URLs (local files)
+    const isLocalFile = src.startsWith('file://');
+    const shouldSkipCache = isLocalFile && settings.debugMode;
+    
+    if (cachedTime && (now - cachedTime) < CACHE_DURATION && !shouldSkipCache) {
       if (settings.debugMode) {
         await debugLog('Already processed (cached):', cacheKey);
       }
       return;
     }
     
-    // Clean up old cache entries
-    for (const [key, timestamp] of processedUrls.entries()) {
-      if (now - timestamp > CACHE_DURATION) {
-        processedUrls.delete(key);
+    // Clean up old cache entries periodically
+    if (processedUrls.size > 100) { // Only cleanup when cache gets large
+      let cleanedCount = 0;
+      for (const [key, timestamp] of processedUrls.entries()) {
+        if (now - timestamp > CACHE_DURATION) {
+          processedUrls.delete(key);
+          cleanedCount++;
+        }
+      }
+      if (settings.debugMode && cleanedCount > 0) {
+        await debugLog(`Cache cleanup completed, removed: ${cleanedCount} entries`);
       }
     }
     
@@ -759,7 +1159,7 @@ const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
       console.error('Error in checkData:', error);
     }
   }
-}, 500);
+}, 100); // Reduced debounce time for faster processing
 
 // Store findings with improved data structure
 async function storeFindings(findings, origin) {
@@ -767,19 +1167,31 @@ async function storeFindings(findings, origin) {
     const storage = await chrome.storage.local.get(['findings']);
     const existingFindings = storage.findings || {};
     
-    if (!existingFindings[origin]) {
-      existingFindings[origin] = [];
+    // Use the first finding's source (full URL) as the key if available
+    const key = findings.length > 0 && findings[0].source !== origin ? findings[0].source : origin;
+    
+    if (!existingFindings[key]) {
+      existingFindings[key] = [];
     }
     
     // Deduplicate findings - consider only unique secrets, not sources
     for (const finding of findings) {
-      const isDuplicate = existingFindings[origin].some(existing => 
+      const isDuplicate = existingFindings[key].some(existing => 
         existing.match === finding.match && 
         existing.type === finding.type
       );
       
       if (!isDuplicate) {
-        existingFindings[origin].push(finding);
+        existingFindings[key].push(finding);
+        
+        // Mark as new finding for notification
+        const findingId = `${finding.type}-${finding.match}-${finding.source}`;
+        newFindings.add(findingId);
+        
+        // Show notification for high-confidence findings
+        if (finding.confidence >= 0.8) {
+          await showNotification(finding);
+        }
       } else {
         // Log duplicate detection for debugging
         const settings = await chrome.storage.local.get(['debugMode']);
@@ -788,7 +1200,7 @@ async function storeFindings(findings, origin) {
             type: finding.type,
             match: finding.match.substring(0, 20) + '...',
             source: finding.source,
-            existingSources: existingFindings[origin]
+            existingSources: existingFindings[key]
               .filter(existing => existing.match === finding.match && existing.type === finding.type)
               .map(existing => existing.source)
           });
@@ -806,15 +1218,25 @@ async function storeFindings(findings, origin) {
 async function updateBadge(origin) {
   try {
     const storage = await chrome.storage.local.get(['findings']);
-    const originFindings = storage.findings?.[origin] || [];
-    const count = originFindings.length;
+    
+    // Count all findings across all origins/URLs
+    let totalCount = 0;
+    if (storage.findings) {
+      for (const key in storage.findings) {
+        totalCount += storage.findings[key].length;
+      }
+    }
+    
+    // Show new findings count if any
+    const newCount = newFindings.size;
+    const badgeText = newCount > 0 ? `!${newCount}` : (totalCount > 0 ? totalCount.toString() : '');
     
     await chrome.action.setBadgeText({
-      text: count > 0 ? count.toString() : ''
+      text: badgeText
     });
     
     await chrome.action.setBadgeBackgroundColor({
-      color: count > 0 ? '#ff0000' : '#00ff00'
+      color: newCount > 0 ? '#ff6600' : (totalCount > 0 ? '#ff0000' : '#00ff00')
     });
   } catch (error) {
     console.error('Error updating badge:', error);
@@ -825,6 +1247,13 @@ async function updateBadge(origin) {
 async function showNotification(finding) {
   try {
     const settings = await chrome.storage.local.get(['enableNotifications', 'debugMode']);
+    
+    // Check if this is a new finding
+    const findingId = `${finding.type}-${finding.match}-${finding.source}`;
+    if (!newFindings.has(findingId)) {
+      await debugLog('Skipping notification - not a new finding');
+      return;
+    }
     
     await debugLog(`Notification check - enableNotifications: ${settings.enableNotifications}, debugMode: ${settings.debugMode}`);
     await debugLog(`Security Alert: High-confidence ${finding.type} detected on ${finding.parentOrigin}`);
@@ -838,18 +1267,13 @@ async function showNotification(finding) {
         title: 'SecretRadar Security Alert',
         message: `High-confidence ${finding.type} detected on ${finding.parentOrigin}`
       });
-              await debugLog('Notification created with ID:', notificationId);
-          } else {
-        await debugLog('Notifications are disabled in settings');
-      }
+      await debugLog('Notification created with ID:', notificationId);
+    } else {
+      await debugLog('Notifications are disabled in settings');
+    }
     
-    // Update badge with alert indicator
-    chrome.action.setBadgeText({
-      text: '!'
-    });
-    chrome.action.setBadgeBackgroundColor({
-      color: '#ff0000'
-    });
+    // Update badge
+    await updateBadge(finding.parentOrigin);
   } catch (error) {
     // Get settings again in case of error
     try {
@@ -911,69 +1335,264 @@ function matchesDenyPattern(domain, pattern) {
 
 
 
-// Message handler for content scripts
+// Message handler for content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  handleMessage(request, sender).then(sendResponse);
-  return true; // Keep message channel open for async response
-});
-
-// Handle manual scan request from popup
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+  // Уменьшаем количество логов для чистоты консоли
+  if (request.scriptUrl) {
+    console.log('[SecretRadar Debug] Script message received:', request.scriptUrl);
+  } else {
+    console.log('[SecretRadar Debug] Background received message:', request);
+  }
+  
+  // Handle popup opened - clear new findings
+  if (request.action === 'popupOpened') {
+    console.log('[SecretRadar Debug] Popup opened - clearing new findings');
+    newFindings.clear();
+    sendResponse({ success: true, message: 'New findings cleared' });
+    return true;
+  }
+  
+  // Handle source map scan request
+  if (request.action === 'scanSourceMap') {
+    console.log('[SecretRadar Debug] Source map scan requested:', request.sourceMapUrl);
+    
+    // Handle message asynchronously
+    (async () => {
+      try {
+        await scanSourceMap(request.sourceMapUrl, request.parentUrl, request.parentOrigin);
+        sendResponse({ success: true, message: 'Source map scanned' });
+      } catch (error) {
+        console.log('[SecretRadar Debug] Source map scan error:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    
+    return true;
+  }
+  
+  // Handle manual scan request from popup
   if (request.action === 'manualScan') {
+    console.log('[SecretRadar Debug] Manual scan requested');
+    
+    // Handle manual scan asynchronously
+    handleManualScan().then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    return true; // Keep message channel open for async response
+  }
+  
+  // Handle clear cache request from popup
+  if (request.action === 'clearCache') {
+    console.log('[SecretRadar Debug] Clear cache requested');
+    
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (!tab) {
-        sendResponse({ success: false, error: 'No active tab' });
-        return true;
-      }
-      
-      // Skip browser/system pages
-      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-        sendResponse({ success: false, error: 'Cannot scan browser pages' });
-        return true;
-      }
-      
-      // Inject script to scan
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        function: scanPageContent
-      });
-      
-      sendResponse({ success: true, message: 'Scan initiated' });
+      clearCache();
+      sendResponse({ success: true, message: 'Cache cleared' });
     } catch (error) {
       sendResponse({ success: false, error: error.message });
     }
+    
     return true;
   }
+  
+  // Handle manual scan request from popup
+  if (request.action === 'manualScan') {
+    console.log('[SecretRadar Debug] Manual scan requested');
+    
+    // Handle message asynchronously
+    (async () => {
+      try {
+        // Get current active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab) {
+          sendResponse({ success: false, error: 'No active tab found' });
+          return;
+        }
+        
+        // Clear cache for this tab
+        const cacheKey = `${tab.url}-${tab.url}`;
+        processedUrls.delete(cacheKey);
+        
+        // Send message to content script to trigger scan
+        await chrome.tabs.sendMessage(tab.id, { action: 'manualScan' });
+        
+        sendResponse({ success: true, message: 'Manual scan triggered' });
+      } catch (error) {
+        console.log('[SecretRadar Debug] Manual scan error:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    
+    return true;
+  }
+  
+  // Handle content script messages
+  if (request.scriptUrl || request.pageBody) {
+    // Уменьшаем количество логов для чистоты консоли
+    if (!request.scriptUrl) {
+      console.log('[SecretRadar Debug] Processing pageBody message');
+    }
+    
+    // Handle message asynchronously
+    handleMessage(request, sender).then(result => {
+      sendResponse(result);
+    }).catch(error => {
+      console.log('[SecretRadar Debug] handleMessage failed with error:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    return true; // Keep message channel open for async response
+  }
+  
+  console.log('[SecretRadar Debug] Unknown message type');
+  sendResponse({ success: false, error: 'Unknown message type' });
+  return true;
 });
+
+// Parse and analyze source map
+async function scanSourceMap(sourceMapUrl, parentUrl, parentOrigin) {
+  try {
+    const settings = await chrome.storage.local.get(['debugMode']);
+    
+    if (settings.debugMode) {
+      await debugLog('Fetching source map:', sourceMapUrl);
+    }
+    
+    // Fetch source map
+    const response = await fetch(sourceMapUrl, {
+      credentials: 'include',
+      cache: 'force-cache'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch source map: ${response.status}`);
+    }
+    
+    const sourceMapData = await response.json();
+    
+    if (settings.debugMode) {
+      await debugLog('Source map fetched, parsing...');
+    }
+    
+    // Extract source files from source map
+    const sourceFiles = sourceMapData.sources || [];
+    const sourceContents = sourceMapData.sourcesContent || [];
+    
+    if (settings.debugMode) {
+      await debugLog(`Found ${sourceFiles.length} source files in source map`);
+    }
+    
+    // Analyze each source file
+    for (let i = 0; i < sourceFiles.length; i++) {
+      const sourceFile = sourceFiles[i];
+      const sourceContent = sourceContents[i];
+      
+      if (!sourceContent) {
+        if (settings.debugMode) {
+          await debugLog('Skipping source file without content:', sourceFile);
+        }
+        continue;
+      }
+      
+      if (settings.debugMode) {
+        await debugLog(`Analyzing source file: ${sourceFile} (${sourceContent.length} chars)`);
+      }
+      
+      // Detect secrets in source content
+      const findings = await detectSecrets(
+        sourceContent,
+        `source-map:${sourceFile}`,
+        parentUrl,
+        parentOrigin
+      );
+      
+      if (findings.length > 0) {
+        if (settings.debugMode) {
+          await debugLog(`Found ${findings.length} secrets in source file: ${sourceFile}`);
+        }
+        
+        // Store findings
+        await storeFindings(findings, parentOrigin);
+        
+        // Update badge
+        await updateBadge(parentOrigin);
+      }
+    }
+    
+    if (settings.debugMode) {
+      await debugLog('Source map analysis completed');
+    }
+    
+  } catch (error) {
+    if (settings.debugMode) {
+      await debugLog('Error scanning source map:', error);
+    }
+    throw error;
+  }
+}
+
+// Async function to handle manual scan
+async function handleManualScan() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  if (!tab) {
+    return { success: false, error: 'No active tab' };
+  }
+  
+  // Skip browser/system pages
+  if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+    return { success: false, error: 'Cannot scan browser pages' };
+  }
+  
+  // Inject script to scan
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    function: scanPageContent
+  });
+  
+  return { success: true, message: 'Scan initiated' };
+}
 
 
 
 async function handleMessage(request, sender) {
+  console.log('[SecretRadar Debug] handleMessage called with:', request);
+  console.log('[SecretRadar Debug] Request keys:', Object.keys(request));
+  console.log('[SecretRadar Debug] Has pageBody:', !!request.pageBody);
+  console.log('[SecretRadar Debug] Has scriptUrl:', !!request.scriptUrl);
   try {
     const url = request.origin || request.scriptUrl;
     const isDenied = await isOriginDenied(url);
     if (isDenied) {
+      console.log('[SecretRadar Debug] Origin denied:', url);
       return { success: false, reason: 'denied' };
     }
     
     if (request.pageBody) {
+      console.log('[SecretRadar Debug] Processing pageBody from:', request.origin, 'length:', request.pageBody.length);
       // Handle scripting injection messages
       const source = request.source || 'content-script';
+      console.log('[SecretRadar Debug] Page body source:', source);
+      console.log('[SecretRadar Debug] Page body keys:', Object.keys(request));
       await debugLog('handleMessage: Received pageBody from', source);
       await debugLog('handleMessage: Origin:', request.origin);
       await debugLog('handleMessage: Page body length:', request.pageBody.length);
       
+      console.log('[SecretRadar Debug] Calling checkData for pageBody');
       await checkData(
         request.pageBody, 
         request.origin, 
         request.parentUrl, 
         request.parentOrigin
       );
+      console.log('[SecretRadar Debug] checkData completed for pageBody');
+      return { success: true };
     } else if (request.scriptUrl) {
       // Проверяем настройку scanExternalScripts
-      const settings = await chrome.storage.local.get(['scanExternalScripts']);
+      const settings = await chrome.storage.local.get(['scanExternalScripts', 'debugMode']);
       if (settings.scanExternalScripts === false) {
         await debugLog('External scripts scanning disabled');
         return { success: false, reason: 'disabled' };
@@ -981,6 +1600,17 @@ async function handleMessage(request, sender) {
       
       // Fetch and check external scripts
       try {
+        // Check cache before fetching to avoid duplicate requests
+        const scriptCacheKey = request.scriptUrl;
+        const now = Date.now();
+        
+        // Check both new and old cache keys for backward compatibility
+        const scriptCachedTime = processedUrls.get(scriptCacheKey) || processedUrls.get(`${scriptCacheKey}-${request.parentOrigin}`);
+        
+        if (scriptCachedTime && (now - scriptCachedTime) < CACHE_DURATION) {
+          return { success: true, reason: 'already_processed' };
+        }
+        
         const response = await fetch(request.scriptUrl, { 
           credentials: 'include',
           cache: 'force-cache' // Use cache for performance
@@ -992,13 +1622,22 @@ async function handleMessage(request, sender) {
           return { success: false, reason: 'http_error', status: response.status };
         }
         
+        await debugLog(`Fetching script: ${request.scriptUrl}`);
+        
         const data = await response.text();
+        await debugLog(`Successfully fetched script: ${request.scriptUrl} (${data.length} chars)`);
+        
+        // Cache the script URL immediately to prevent duplicate fetches
+        processedUrls.set(request.scriptUrl, now);
+        
         await checkData(
           data, 
           request.scriptUrl, 
           request.parentUrl, 
           request.parentOrigin
         );
+        
+        return { success: true };
       } catch (fetchError) {
         // Улучшенная обработка ошибок CSP и сетевых ошибок
         if (fetchError.message.includes('Content Security Policy') || 
@@ -1058,6 +1697,8 @@ async function handleMessage(request, sender) {
         
         // Cache the processed file
         processedUrls.set(cacheKey, now);
+        
+        return { success: true };
         
       } catch (fetchError) {
         if (fetchError.message.includes('Content Security Policy') || 
@@ -1242,30 +1883,33 @@ async function cleanupOldFindings() {
 // Function to scan page content (injected via scripting API to bypass CSP)
 async function scanPageContent() {
   try {
-    // Get page content
-    const pageContent = document.documentElement.innerHTML;
-    const origin = window.location.origin;
-    const parentUrl = window.location.href;
-    const parentOrigin = window.location.origin;
-    
-    // For file:// URLs, use a special origin
-    const effectiveOrigin = origin === 'null' ? 'file://' : origin;
-    
-    await debugLog('scanPageContent: Page content length:', pageContent.length);
-    await debugLog('scanPageContent: Origin:', origin);
-    await debugLog('scanPageContent: Effective origin:', effectiveOrigin);
-    await debugLog('scanPageContent: Parent URL:', parentUrl);
-    
-    // Send message to background script
-    chrome.runtime.sendMessage({
-      pageBody: pageContent,
-      origin: effectiveOrigin,
-      parentUrl: parentUrl,
-      parentOrigin: parentOrigin,
-      source: 'scripting-injection'
+    // Schedule the heavy scanning task when browser is idle
+    scheduleScan(async () => {
+      // Get page content
+      const pageContent = document.documentElement.innerHTML;
+      const origin = window.location.origin;
+      const parentUrl = window.location.href;
+      const parentOrigin = window.location.origin;
+      
+      // For file:// URLs, use a special origin
+      const effectiveOrigin = origin === 'null' ? 'file://' : origin;
+      
+      await debugLog('scanPageContent: Page content length:', pageContent.length);
+      await debugLog('scanPageContent: Origin:', origin);
+      await debugLog('scanPageContent: Effective origin:', effectiveOrigin);
+      await debugLog('scanPageContent: Parent URL:', parentUrl);
+      
+      // Send message to background script
+      chrome.runtime.sendMessage({
+        pageBody: pageContent,
+        origin: effectiveOrigin,
+        parentUrl: parentUrl,
+        parentOrigin: parentOrigin,
+        source: 'scripting-injection'
+      });
+      
+      await debugLog('Page scanned via scripting injection (CSP bypass)');
     });
-    
-    await debugLog('Page scanned via scripting injection (CSP bypass)');
   } catch (error) {
     await debugLog('Error in page scan via injection:', error.message);
   }
@@ -1282,7 +1926,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     denyList: ['*.google.com'],
     dataRetentionDays: 7,
     showAdvancedSettings: false,
-    debugMode: false,
+    debugMode: true,
     verboseScanning: false
   };
   

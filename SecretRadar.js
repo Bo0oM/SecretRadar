@@ -27,6 +27,57 @@
     };
   }
 
+  // Manual scan function (without debounce)
+  async function manualScan() {
+    try {
+      const settings = await chrome.storage.local.get(['debugMode']);
+      
+      if (settings.debugMode) {
+        await debugLog('Manual scan triggered');
+      }
+      
+      const pageContent = document.documentElement.innerHTML;
+      const origin = window.location.origin;
+      const parentUrl = window.location.href;
+      const parentOrigin = window.location.origin;
+
+      if (settings.debugMode) {
+        await debugLog('Starting manual scan for:', origin);
+      }
+
+      // Send page content for analysis
+      try {
+        const pageResult = await chrome.runtime.sendMessage({
+          pageBody: pageContent,
+          origin: origin,
+          parentUrl: parentUrl,
+          parentOrigin: parentOrigin
+        });
+        
+        if (settings.debugMode) {
+          await debugLog('Manual scan result:', pageResult);
+        }
+      } catch (error) {
+        console.log('[SecretRadar Debug] Error sending page content:', error);
+        throw error;
+      }
+
+      // Scan external scripts
+      await scanExternalScripts();
+      
+      // Scan for source maps
+      await scanSourceMaps();
+      
+      // Scan for common sensitive files
+      await scanSensitiveFiles();
+
+    } catch (error) {
+      if (settings.debugMode) {
+        await debugLog('Error in manual scan:', error);
+      }
+    }
+  }
+
   // Enhanced page scanning with performance optimizations
   const scanPage = debounce(async function() {
     try {
@@ -53,19 +104,27 @@
       }
 
       // Send page content for analysis
-      const pageResult = await chrome.runtime.sendMessage({
-        pageBody: pageContent,
-        origin: origin,
-        parentUrl: parentUrl,
-        parentOrigin: parentOrigin
-      });
-      
-      if (settings.debugMode) {
-        await debugLog('Page scan result:', pageResult);
+      try {
+        const pageResult = await chrome.runtime.sendMessage({
+          pageBody: pageContent,
+          origin: origin,
+          parentUrl: parentUrl,
+          parentOrigin: parentOrigin
+        });
+        
+        if (settings.debugMode) {
+          await debugLog('Page scan result:', pageResult);
+        }
+      } catch (error) {
+        console.log('[SecretRadar Debug] Error sending page content:', error);
+        throw error;
       }
 
       // Scan external scripts with improved performance
       await scanExternalScripts();
+      
+      // Scan for source maps
+      await scanSourceMaps();
       
       // Scan for common sensitive files
       await scanSensitiveFiles();
@@ -125,11 +184,19 @@
         processedScripts.add(scriptSrc);
         
         try {
+          if (settings.debugMode) {
+            await debugLog(`Sending script to background: ${scriptSrc}`);
+          }
+          
           const result = await chrome.runtime.sendMessage({
             scriptUrl: scriptSrc,
             parentUrl: window.location.href,
             parentOrigin: window.location.origin
           });
+          
+          if (settings.debugMode) {
+            await debugLog(`Script result:`, result);
+          }
           
           if (settings.debugMode) {
             if (result && result.reason === 'csp_error') {
@@ -168,6 +235,99 @@
         }
       } catch (settingsError) {
         await debugLog('Error in scanExternalScripts:', error);
+      }
+    }
+  }
+
+  // Scan for source maps
+  async function scanSourceMaps() {
+    try {
+      const settings = await chrome.storage.local.get(['scanSourceMaps', 'debugMode']);
+      if (settings.scanSourceMaps === false) {
+        if (settings.debugMode) {
+          await debugLog('Source map scanning disabled');
+        }
+        return;
+      }
+
+      if (settings.debugMode) {
+        await debugLog('Starting source map scan...');
+      }
+
+      // Find all script tags
+      const scripts = document.querySelectorAll('script[src]');
+      const sourceMapUrls = new Set();
+
+      for (const script of scripts) {
+        const scriptUrl = script.src;
+        
+        // Check if script has source map comment
+        try {
+          const response = await fetch(scriptUrl);
+          const scriptContent = await response.text();
+          
+          // Look for source map comment
+          const sourceMapMatch = scriptContent.match(/\/\/[#@]\s*sourceMappingURL=([^\s'"]+)/);
+          if (sourceMapMatch) {
+            const sourceMapUrl = new URL(sourceMapMatch[1], scriptUrl).href;
+            sourceMapUrls.add(sourceMapUrl);
+            if (settings.debugMode) {
+              await debugLog('Found source map:', sourceMapUrl);
+            }
+          }
+        } catch (error) {
+          if (settings.debugMode) {
+            await debugLog('Error checking script for source map:', error);
+          }
+        }
+      }
+
+      // Also check for .map files in common locations
+      const commonMapPaths = [
+        '/static/js/',
+        '/assets/js/',
+        '/js/',
+        '/dist/',
+        '/build/',
+        '/public/'
+      ];
+
+      for (const path of commonMapPaths) {
+        const mapUrl = new URL(path + '*.map', window.location.origin).href;
+        try {
+          const response = await fetch(mapUrl);
+          if (response.ok) {
+            sourceMapUrls.add(mapUrl);
+            if (settings.debugMode) {
+              await debugLog('Found source map at common path:', mapUrl);
+            }
+          }
+        } catch (error) {
+          // Ignore 404 errors
+        }
+      }
+
+      // Send source map URLs to background script
+      if (sourceMapUrls.size > 0) {
+        for (const mapUrl of sourceMapUrls) {
+          try {
+            await chrome.runtime.sendMessage({
+              action: 'scanSourceMap',
+              sourceMapUrl: mapUrl,
+              parentUrl: window.location.href,
+              parentOrigin: window.location.origin
+            });
+          } catch (error) {
+            if (settings.debugMode) {
+              await debugLog('Error sending source map URL:', error);
+            }
+          }
+        }
+      }
+
+    } catch (error) {
+      if (settings.debugMode) {
+        await debugLog('Error in scanSourceMaps:', error);
       }
     }
   }
@@ -336,7 +496,21 @@
   window.secretRadar = {
     scanPage,
     scanExternalScripts,
-    scanSensitiveFiles
+    scanSourceMaps,
+    scanSensitiveFiles,
+    manualScan
   };
+
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'manualScan') {
+      manualScan().then(() => {
+        sendResponse({ success: true });
+      }).catch(error => {
+        sendResponse({ success: false, error: error.message });
+      });
+      return true; // Keep message channel open
+    }
+  });
 
 })();

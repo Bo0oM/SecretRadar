@@ -13,6 +13,9 @@ async function debugLog(message, ...args) {
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
+  // Notify background script that popup is opened
+  await chrome.runtime.sendMessage({ action: 'popupOpened' });
+  
   // Initialize settings
   await initializeSettings();
   
@@ -33,6 +36,7 @@ async function initializeSettings() {
     confidenceThreshold: 0.3,
     autoScan: true,
     scanExternalScripts: true,
+    scanSourceMaps: true,
     scanSensitiveFiles: false,
     denyList: ['https://www.google.com', '*.google.com'],
     dataRetentionDays: 7, // Default 7 days
@@ -225,7 +229,31 @@ async function loadCurrentTabFindings() {
     }
     
     const storage = await chrome.storage.local.get(['findings']);
-    const findings = storage.findings?.[origin] || [];
+    
+    // Try to find findings by full URL first, then by origin
+    let findings = [];
+    if (storage.findings) {
+      // First try exact URL match
+      findings = storage.findings[tab.url] || [];
+      
+      // If no findings by URL, try by origin
+      if (findings.length === 0) {
+        findings = storage.findings[origin] || [];
+      }
+      
+      // If still no findings, check all keys that contain the origin
+      if (findings.length === 0) {
+        for (const [key, keyFindings] of Object.entries(storage.findings)) {
+          if (key.includes(origin) || key.startsWith('file://')) {
+            findings = findings.concat(keyFindings);
+          }
+        }
+      }
+    }
+    
+    await debugLog(`Found ${findings.length} findings for ${origin}`);
+    await debugLog(`Tab URL: ${tab.url}`);
+    await debugLog(`Storage keys:`, Object.keys(storage.findings || {}));
     
     await displayFindings(findings, origin);
   } catch (error) {
@@ -384,7 +412,7 @@ function applyFilters() {
 // Setup event listeners
 function setupEventListeners() {
   // Settings toggles
-  const toggles = ['enableNotifications', 'autoScan', 'scanExternalScripts', 'scanSensitiveFiles', 'debugMode', 'verboseScanning'];
+      const toggles = ['enableNotifications', 'autoScan', 'scanExternalScripts', 'scanSourceMaps', 'scanSensitiveFiles', 'debugMode', 'verboseScanning'];
   
   toggles.forEach(toggleId => {
     const element = document.getElementById(toggleId);
@@ -462,6 +490,13 @@ function setupEventListeners() {
     });
   }
   
+  const forceScanButton = document.getElementById('forceScan');
+  if (forceScanButton) {
+    forceScanButton.addEventListener('click', async () => {
+      await forceScan();
+    });
+  }
+  
   const clearButton = document.getElementById('clearFindings');
   if (clearButton) {
     clearButton.addEventListener('click', async () => {
@@ -480,6 +515,13 @@ function setupEventListeners() {
   if (clearDeniedButton) {
     clearDeniedButton.addEventListener('click', async () => {
       await clearDeniedDomainFindings();
+    });
+  }
+  
+  const clearCacheButton = document.getElementById('clearCache');
+  if (clearCacheButton) {
+    clearCacheButton.addEventListener('click', async () => {
+      await clearCache();
     });
   }
   
@@ -566,7 +608,7 @@ async function openDashboard() {
 async function updateUI() {
   const storage = await chrome.storage.local.get([
     'enableNotifications', 'autoScan', 'scanExternalScripts', 
-    'scanSensitiveFiles', 'confidenceThreshold', 'dataRetentionDays',
+    'scanSourceMaps', 'scanSensitiveFiles', 'confidenceThreshold', 'dataRetentionDays',
     'showAdvancedSettings', 'debugMode', 'verboseScanning'
   ]);
   
@@ -662,6 +704,54 @@ async function testSettingsFunctionality() {
   }
 }
 
+// Force scan (bypass cache)
+async function forceScan() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Handle cases where tab is not available
+    if (!tab) {
+      displayStatus('No active tab', 'warning');
+      return;
+    }
+    
+    // Handle cases where URL is not available or page is not loaded
+    if (!tab.url || tab.url === 'about:blank' || tab.url === 'chrome://newtab/') {
+      displayStatus('Page not loaded yet', 'scanning');
+      return;
+    }
+    
+    // Handle browser/system pages
+    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
+      displayStatus('Cannot scan browser pages', 'warning');
+      return;
+    }
+    
+    // Clear cache first
+    await chrome.runtime.sendMessage({ action: 'clearCache' });
+    
+    // Try manual scan via background script (bypasses CSP)
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'manualScan' });
+      
+      if (response.success) {
+        displayStatus('Force scanning...', 'scanning');
+        // Reload findings after a delay
+        setTimeout(loadCurrentTabFindings, 3000);
+      } else {
+        displayStatus(response.error || 'Force scan failed', 'error');
+      }
+    } catch (scriptError) {
+      await debugLog('Force scan failed:', scriptError.message);
+      displayStatus('Force scan failed - CSP restriction', 'warning');
+    }
+    
+  } catch (error) {
+    await debugLog('Error triggering force scan:', error);
+    displayStatus('Failed to trigger force scan', 'error');
+  }
+}
+
 // Trigger manual scan
 async function triggerScan() {
   try {
@@ -740,21 +830,61 @@ async function clearCurrentTabFindings() {
     }
     
     const storage = await chrome.storage.local.get(['findings']);
-    if (storage.findings && storage.findings[origin]) {
-      delete storage.findings[origin];
-      await chrome.storage.local.set({ findings: storage.findings });
+    let cleared = false;
+    
+    if (storage.findings) {
+      // Clear by exact URL
+      if (storage.findings[tab.url]) {
+        delete storage.findings[tab.url];
+        cleared = true;
+      }
       
-      // Update badge
-      await chrome.action.setBadgeText({ text: '' });
+      // Clear by origin
+      if (storage.findings[origin]) {
+        delete storage.findings[origin];
+        cleared = true;
+      }
       
-      // Reload display
-      await loadCurrentTabFindings();
+      // Clear by any key containing origin
+      for (const key of Object.keys(storage.findings)) {
+        if (key.includes(origin) || key.startsWith('file://')) {
+          delete storage.findings[key];
+          cleared = true;
+        }
+      }
+      
+      if (cleared) {
+        await chrome.storage.local.set({ findings: storage.findings });
+        
+        // Update badge
+        await chrome.action.setBadgeText({ text: '' });
+        
+        // Reload display
+        await loadCurrentTabFindings();
+      } else {
+        displayStatus('No findings to clear', 'safe');
+      }
     } else {
       displayStatus('No findings to clear', 'safe');
     }
   } catch (error) {
     await debugLog('Error clearing findings:', error);
     displayStatus('Failed to clear findings', 'error');
+  }
+}
+
+// Clear cache
+async function clearCache() {
+  try {
+    // Send message to background script to clear cache
+    await chrome.runtime.sendMessage({ action: 'clearCache' });
+    showNotification('Cache cleared successfully', 'success');
+    
+    // Reload findings to show fresh data
+    await loadCurrentTabFindings();
+  } catch (error) {
+    await debugLog('Error clearing cache:', error);
+    showNotification('Failed to clear cache', 'error');
   }
 }
 
