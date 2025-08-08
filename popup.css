@@ -90,6 +90,12 @@ body {
   border: 2px solid #007bff;
 }
 
+.status.denied {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+  border: 2px solid #6c757d;
+}
+
 /* Main Content */
 .main-content {
   flex: 1;
@@ -477,6 +483,27 @@ body {
   border: 1px solid rgba(40, 167, 69, 0.2);
   border-radius: 6px;
   margin: 10px 0;
+}
+
+.denied-message {
+  text-align: center;
+  color: #495057;
+  padding: 20px;
+  background: rgba(108, 117, 125, 0.1);
+  border: 1px solid rgba(108, 117, 125, 0.2);
+  border-radius: 6px;
+  margin: 10px 0;
+  border-left: 4px solid #6c757d;
+}
+
+.denied-message p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.denied-message p:first-child {
+  font-weight: 600;
+  color: #343a40;
 }
 
 /* Scrollbar Styling */

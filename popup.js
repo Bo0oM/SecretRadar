@@ -120,6 +120,9 @@ async function addToDenyList(domain) {
     // Reload display
     await loadDenyList();
     
+    // Reload current tab findings to update UI
+    await loadCurrentTabFindings();
+    
     showNotification(`Added ${domain} to deny list`, 'success');
     return true;
   } catch (error) {
@@ -142,6 +145,9 @@ async function removeFromDenyList(domain) {
     // Reload display
     await loadDenyList();
     
+    // Reload current tab findings to update UI
+    await loadCurrentTabFindings();
+    
     showNotification(`Removed ${domain} from deny list`, 'success');
   } catch (error) {
     await debugLog('Error removing from deny list:', error);
@@ -154,6 +160,10 @@ async function clearDenyList() {
   try {
     await chrome.storage.local.set({ denyList: [] });
     await loadDenyList();
+    
+    // Reload current tab findings to update UI
+    await loadCurrentTabFindings();
+    
     showNotification('Deny list cleared', 'success');
   } catch (error) {
     await debugLog('Error clearing deny list:', error);
@@ -228,6 +238,10 @@ async function loadCurrentTabFindings() {
       return;
     }
     
+    // Check if origin is denied
+    const isDenied = await isOriginDenied(tab.url);
+    await debugLog(`Origin ${origin} is denied: ${isDenied}`);
+    
     const storage = await chrome.storage.local.get(['findings']);
     
     // Try to find findings by full URL first, then by origin
@@ -255,7 +269,7 @@ async function loadCurrentTabFindings() {
     await debugLog(`Tab URL: ${tab.url}`);
     await debugLog(`Storage keys:`, Object.keys(storage.findings || {}));
     
-    await displayFindings(findings, origin);
+    await displayFindings(findings, origin, isDenied);
   } catch (error) {
     await debugLog('Error loading findings:', error);
     displayStatus('Error loading data', 'error');
@@ -263,12 +277,26 @@ async function loadCurrentTabFindings() {
 }
 
 // Display findings in the popup
-function displayFindings(findings, origin) {
+function displayFindings(findings, origin, isDenied = false) {
   const findingsContainer = document.getElementById('findingsList');
   const statusElement = document.getElementById('status');
   
   if (!findingsContainer || !statusElement) {
     debugLog('Required elements not found');  
+    return;
+  }
+  
+  // Handle denied origins
+  if (isDenied) {
+    statusElement.textContent = 'Site is in deny list - scanning disabled';
+    statusElement.className = 'status denied';
+    findingsContainer.innerHTML = `
+      <div class="denied-message">
+        <p>🔒 This site has been added to the deny list.</p>
+        <p>SecretRadar scanning is disabled for this domain.</p>
+        <p>To re-enable scanning, remove this site from the deny list in settings.</p>
+      </div>
+    `;
     return;
   }
   
