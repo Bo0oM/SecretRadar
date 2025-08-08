@@ -1314,7 +1314,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 // Listen for storage changes to clean up findings when denyList is updated
 chrome.storage.onChanged.addListener(async (changes, namespace) => {
   if (namespace === 'local' && changes.denyList) {
-    debugLog('Deny list updated, cleaning up findings from denied domains...');
+    await debugLog('Deny list updated, cleaning up findings from denied domains...');
     await cleanupOldFindings();
   }
 });

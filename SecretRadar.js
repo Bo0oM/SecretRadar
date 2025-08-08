@@ -34,7 +34,7 @@
       const settings = await chrome.storage.local.get(['autoScan', 'debugMode']);
       
       if (settings.debugMode) {
-        debugLog('Content script settings:', settings);
+        await debugLog('Content script settings:', settings);
       }
       
       if (settings.autoScan === false) {
