@@ -9,6 +9,12 @@ export const SECRET_PATTERNS = {
     confidence: "high",
     context: ["aws", "amazon", "cloud"]
   },
+  // Standalone: AKIA prefix is AWS-specific and unambiguous
+  "AWS Access Key (standalone)": {
+    pattern: /AKIA[0-9A-Z]{16}/g,
+    confidence: "high",
+    context: ["aws", "amazon", "key"]
+  },
   "AWS Secret Key": {
     pattern: /[\w.-]{0,50}?(?:aws|AWS)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}([A-Za-z0-9\/+=]{40})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
@@ -22,6 +28,24 @@ export const SECRET_PATTERNS = {
   // Standalone: ghp_ prefix is unambiguous, no context required
   "GitHub PAT (standalone)": {
     pattern: /ghp_[a-zA-Z0-9]{36}/g,
+    confidence: "high",
+    context: ["github", "token", "access"]
+  },
+  // GitHub OAuth token
+  "GitHub OAuth Token": {
+    pattern: /gho_[a-zA-Z0-9]{36}/g,
+    confidence: "high",
+    context: ["github", "oauth", "token"]
+  },
+  // GitHub Actions server-to-server token
+  "GitHub Server Token": {
+    pattern: /ghs_[a-zA-Z0-9]{36}/g,
+    confidence: "high",
+    context: ["github", "actions", "token"]
+  },
+  // GitHub fine-grained personal access token (new format since 2022)
+  "GitHub Fine-Grained PAT": {
+    pattern: /github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}/g,
     confidence: "high",
     context: ["github", "token", "access"]
   },
@@ -288,12 +312,95 @@ export const SECRET_PATTERNS = {
     context: ["api", "key", "secret", "token", "php"]
   },
 
-  "Firebase Config": {
-    pattern: /apiKey:\s*["']([^"']{39,43})["']/g,
+  // OpenAI API keys — extremely common in frontend bundles
+  // Old format: T3BlbkFJ is base64 marker present in all legacy keys
+  "OpenAI API Key": {
+    pattern: /sk-[a-zA-Z0-9_-]{20}T3BlbkFJ[a-zA-Z0-9_-]{20}/g,
     confidence: "high",
-    context: ["firebase", "config", "api"]
+    context: ["openai", "gpt", "api", "chatgpt"]
+  },
+  // New project-scoped keys (since 2024)
+  "OpenAI Project Key": {
+    pattern: /sk-proj-[a-zA-Z0-9_-]{48,}/g,
+    confidence: "high",
+    context: ["openai", "gpt", "api", "key"]
+  },
+  // Anthropic / Claude API keys
+  "Anthropic API Key": {
+    pattern: /sk-ant-api[0-9]{2}-[a-zA-Z0-9_-]{93,}/g,
+    confidence: "high",
+    context: ["anthropic", "claude", "api", "key"]
+  },
+  // HuggingFace access tokens — common in ML frontend apps
+  "HuggingFace Token": {
+    pattern: /hf_[a-zA-Z0-9]{37}/g,
+    confidence: "high",
+    context: ["huggingface", "hf", "token", "transformers"]
+  },
+  // npm access token (new format since 2021)
+  "npm Access Token": {
+    pattern: /npm_[a-zA-Z0-9]{36}/g,
+    confidence: "high",
+    context: ["npm", "registry", "token"]
+  },
+  // Shopify storefront and admin tokens
+  "Shopify Access Token": {
+    pattern: /shpat_[a-fA-F0-9]{32}/g,
+    confidence: "high",
+    context: ["shopify", "store", "api", "token"]
+  },
+  "Shopify Shared Secret": {
+    pattern: /shpss_[a-fA-F0-9]{32}/g,
+    confidence: "high",
+    context: ["shopify", "webhook", "secret"]
+  },
+  // Mapbox tokens — common in mapping frontend apps
+  // pk.eyJ = public token, sk.eyJ = secret token (both are JWT-based)
+  "Mapbox Token": {
+    pattern: /[ps]k\.eyJ[a-zA-Z0-9_-]{60,}/g,
+    confidence: "high",
+    context: ["mapbox", "map", "token"]
+  },
+  // Airtable personal access token (new format since 2023)
+  "Airtable PAT": {
+    pattern: /pat[a-zA-Z0-9]{14}\.[a-zA-Z0-9]{64}/g,
+    confidence: "high",
+    context: ["airtable", "api", "token"]
+  },
+  // PlanetScale database tokens
+  "PlanetScale Token": {
+    pattern: /pscale_tkn_[a-zA-Z0-9_]{43}/g,
+    confidence: "high",
+    context: ["planetscale", "database", "token"]
+  },
+  // Google OAuth client secret (service account or OAuth2 app)
+  "Google OAuth Client Secret": {
+    pattern: /GOCSPX-[a-zA-Z0-9_-]{28}/g,
+    confidence: "high",
+    context: ["google", "oauth", "client", "secret"]
+  },
+  // Mailchimp API key — unique suffix format
+  "Mailchimp API Key": {
+    pattern: /[a-f0-9]{32}-us[0-9]{1,2}/g,
+    confidence: "high",
+    context: ["mailchimp", "email", "api", "marketing"]
   },
 
+  // Firebase full config block — apiKey alone is public by design (like Sentry DSN),
+  // but the full initializeApp config with projectId/authDomain/databaseURL enables
+  // unauthorized signups and data access if Firebase Rules are misconfigured.
+  "Firebase Config": {
+    pattern: /(?:firebase\.initializeApp|initializeApp)\s*\(\s*\{[^}]{0,800}apiKey\s*:\s*["']([^"']{10,})["'][^}]{0,800}\}/g,
+    confidence: "high",
+    context: ["firebase", "initializeApp"],
+    validation: (match, context) => {
+      // Only flag when identifying fields are present alongside apiKey.
+      // Without these, apiKey is just a public project identifier — not actionable.
+      return /projectId\s*:/.test(match) ||
+             /databaseURL\s*:/.test(match) ||
+             /authDomain\s*:/.test(match);
+    }
+  },
   "Slack Webhook URL": {
     pattern: /(?:https?:\/\/)?hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9+\/]{43,56}/g,
     confidence: "high",
@@ -350,13 +457,13 @@ export const SECRET_PATTERNS = {
   },
 
   "Telegram Bot Token": {
-    pattern: /[\w.-]{0,50}?(?:telegram|TELEGRAM)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}([0-9]{8,10}:[A-Za-z0-9_-]{35})(?:[`'"\s;]|\\[nr]|$)/gi,
+    pattern: /[\w.-]{0,50}?(?:telegram|TELEGRAM)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}([0-9]{6,12}:[A-Za-z0-9_-]{32,38})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
     context: ["telegram", "bot", "token"]
   },
   // Standalone: digits:AA prefix is Telegram-specific
   "Telegram Bot Token (standalone)": {
-    pattern: /[0-9]{8,10}:AA[A-Za-z0-9_-]{33}/g,
+    pattern: /(?<![0-9])[0-9]{6,12}:AA[A-Za-z0-9_-]{30,36}(?![A-Za-z0-9_-])/g,
     confidence: "high",
     context: ["telegram", "bot", "token"]
   },
@@ -431,16 +538,14 @@ export const SECRET_PATTERNS = {
     confidence: "medium",
     context: ["key", "api", "secret", "token"],
     validation: (match, context) => {
-      const value = match[0];
-      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+      // match is the full matched string e.g. 'api_key="abc123..."'
+      const lower = match.toLowerCase();
+      if (lower.includes('test') || lower.includes('example') || lower.includes('demo')) {
         return false;
       }
-      const secretValue = match[1];
-      if (!secretValue) return false;
-
-      if (secretValue.length < 32 || secretValue.length > 45) {
-        return false;
-      }
+      // Extract value between quotes
+      const m = match.match(/['"`]([a-zA-Z0-9_-]{32,45})['"`]/);
+      if (!m) return false;
       return true;
     }
   },
@@ -449,16 +554,12 @@ export const SECRET_PATTERNS = {
     confidence: "medium",
     context: ["secret", "key", "api", "token"],
     validation: (match, context) => {
-      const value = match[0];
-      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+      const lower = match.toLowerCase();
+      if (lower.includes('test') || lower.includes('example') || lower.includes('demo')) {
         return false;
       }
-      const secretValue = match[1];
-      if (!secretValue) return false;
-
-      if (secretValue.length < 32 || secretValue.length > 45) {
-        return false;
-      }
+      const m = match.match(/['"`]([a-zA-Z0-9_-]{32,45})['"`]/);
+      if (!m) return false;
       return true;
     }
   },
@@ -467,16 +568,12 @@ export const SECRET_PATTERNS = {
     confidence: "medium",
     context: ["token", "api", "secret", "key"],
     validation: (match, context) => {
-      const value = match[0];
-      if (value.includes('test') || value.includes('example') || value.includes('demo')) {
+      const lower = match.toLowerCase();
+      if (lower.includes('test') || lower.includes('example') || lower.includes('demo')) {
         return false;
       }
-      const secretValue = match[1];
-      if (!secretValue) return false;
-
-      if (secretValue.length < 32 || secretValue.length > 45) {
-        return false;
-      }
+      const m = match.match(/['"`]([a-zA-Z0-9_-]{32,45})['"`]/);
+      if (!m) return false;
       return true;
     }
   }
