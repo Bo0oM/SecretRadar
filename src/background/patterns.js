@@ -30,7 +30,7 @@ export const SECRET_PATTERNS = {
   },
   // Standalone: ghp_ prefix is unambiguous, no context required
   "GitHub PAT (standalone)": {
-    pattern: /ghp_[a-zA-Z0-9]{36}/g,
+    pattern: /ghp_[a-zA-Z0-9]{36,40}/g,
     confidence: "high",
     context: ["github", "token", "access"],
     prefilter: "ghp_"
@@ -194,7 +194,7 @@ export const SECRET_PATTERNS = {
   },
   // Database connection strings
   "PostgreSQL URL": {
-    pattern: /postgresql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?:\d+)?\/[a-zA-Z0-9_-]+/g,
+    pattern: /postgresql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?::\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
     context: ["postgresql", "postgres", "database", "connection", "url"],
     validation: async (match, context) => {
@@ -217,13 +217,13 @@ export const SECRET_PATTERNS = {
     prefilter: "postgresql://"
   },
   "MySQL URL": {
-    pattern: /mysql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+:\d+\/[a-zA-Z0-9_-]+/g,
+    pattern: /mysql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?::\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
     context: ["mysql", "database", "connection", "url"],
     prefilter: "mysql://"
   },
   "MongoDB URL": {
-    pattern: /mongodb(?:\+srv)?:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?:\d+)?\/[a-zA-Z0-9_-]+/g,
+    pattern: /mongodb(?:\+srv)?:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?::\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
     context: ["mongodb", "database", "connection", "url"],
     prefilter: "mongodb"
@@ -434,7 +434,7 @@ export const SECRET_PATTERNS = {
   },
 
   "SendGrid API Key": {
-    pattern: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43,}/g,
+    pattern: /SG\.[a-zA-Z0-9_-]{22,}\.[a-zA-Z0-9_-]{43,}/g,
     confidence: "high",
     context: ["sendgrid", "email", "api"],
     prefilter: "SG."
@@ -454,9 +454,10 @@ export const SECRET_PATTERNS = {
   },
 
   "Elasticsearch URL": {
-    pattern: /(?:elasticsearch|ELASTICSEARCH).*?https?:\/\/[a-zA-Z0-9.-]+:\d+\/[a-zA-Z0-9_-]+/g,
+    pattern: /(?:elasticsearch|ELASTICSEARCH)[^\n]{0,50}https?:\/\/[a-zA-Z0-9.-]+:\d+(?:\/[a-zA-Z0-9_-]+)?/g,
     confidence: "high",
-    context: ["elasticsearch", "elastic", "search"]
+    context: ["elasticsearch", "elastic", "search"],
+    prefilter: "elasticsearch"
   },
 
   "OAuth Client Secret": {
