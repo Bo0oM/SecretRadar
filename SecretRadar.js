@@ -29,9 +29,10 @@
 
   // Manual scan function (without debounce)
   async function manualScan() {
+    let settings = {};
     try {
-      const settings = await chrome.storage.local.get(['debugMode']);
-      
+      settings = await chrome.storage.local.get(['debugMode']);
+
       if (settings.debugMode) {
         await debugLog('Manual scan triggered');
       }
@@ -282,30 +283,8 @@
         }
       }
 
-      // Also check for .map files in common locations
-      const commonMapPaths = [
-        '/static/js/',
-        '/assets/js/',
-        '/js/',
-        '/dist/',
-        '/build/',
-        '/public/'
-      ];
-
-      for (const path of commonMapPaths) {
-        const mapUrl = new URL(path + '*.map', window.location.origin).href;
-        try {
-          const response = await fetch(mapUrl);
-          if (response.ok) {
-            sourceMapUrls.add(mapUrl);
-            if (settings.debugMode) {
-              await debugLog('Found source map at common path:', mapUrl);
-            }
-          }
-        } catch (error) {
-          // Ignore 404 errors
-        }
-      }
+      // Note: probing common map paths with wildcard URLs is not feasible via fetch;
+      // source maps are discovered only via sourceMappingURL comments in script content above.
 
       // Send source map URLs to background script
       if (sourceMapUrls.size > 0) {
@@ -448,8 +427,7 @@
 
     contentObserver.observe(document.body, {
       childList: true,
-      subtree: true,
-      characterData: true
+      subtree: true
     });
   }
 
@@ -491,15 +469,6 @@
   initialize().catch(error => {
     console.error('Failed to initialize SecretRadar:', error);
   });
-
-  // Export functions for potential external use
-  window.secretRadar = {
-    scanPage,
-    scanExternalScripts,
-    scanSourceMaps,
-    scanSensitiveFiles,
-    manualScan
-  };
 
   // Listen for messages from background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

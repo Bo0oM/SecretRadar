@@ -5,7 +5,8 @@
   "description": "Advanced security scanner for detecting sensitive data and secrets in web applications",
   "homepage_url": "https://bo0om.ru",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_title": "SecretRadar",
@@ -20,7 +21,8 @@
     "activeTab",
     "storage",
     "scripting",
-    "notifications"
+    "notifications",
+    "alarms"
   ],
   "host_permissions": [
     "https://*/*",
