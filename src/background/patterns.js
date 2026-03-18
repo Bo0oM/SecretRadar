@@ -235,6 +235,20 @@ export const SECRET_PATTERNS = {
     prefilter: "redis://"
   },
 
+  // Generic credential URL: scheme://user:pass@host — catches smtp, amqp, ftp, ldap, sftp, etc.
+  // Specific schemes (postgresql, mysql, mongodb, redis, cloudinary) have their own higher-confidence patterns.
+  "URL Credentials": {
+    pattern: /[a-zA-Z][a-zA-Z0-9+.-]{1,15}:\/\/[a-zA-Z0-9._%-]{1,64}:([a-zA-Z0-9._~!$%^&*()\[\]+,;:-]{6,})@[a-zA-Z0-9][a-zA-Z0-9.-]+/g,
+    confidence: "medium",
+    context: ["url", "uri", "dsn", "connection", "connect", "config", "database", "db", "smtp", "amqp", "ftp", "ldap", "sftp", "git", "api", "auth", "credential", "secret", "password", "pass", "host", "server"],
+    prefilter: "://",
+    validation: (match) => {
+      // Exclude schemes with dedicated higher-confidence patterns to avoid duplicates
+      if (/^(?:postgresql|postgres|mysql|mongodb|redis|cloudinary):\/\//i.test(match)) return false;
+      return true;
+    }
+  },
+
   // CI/CD and Registry credentials
   "CI Registry Password": {
     pattern: /["']?CI_REGISTRY_PASSWORD["']?\s*[:=]\s*["']([^"']{8,})["']/g,
@@ -454,7 +468,7 @@ export const SECRET_PATTERNS = {
   },
 
   "Elasticsearch URL": {
-    pattern: /(?:elasticsearch|ELASTICSEARCH)[^\n]{0,50}https?:\/\/[a-zA-Z0-9.-]+:\d+(?:\/[a-zA-Z0-9_-]+)?/g,
+    pattern: /(?:elasticsearch|ELASTICSEARCH)\s*[:=]["'\s]{0,5}https?:\/\/[a-zA-Z0-9.-]+:\d+(?:\/[a-zA-Z0-9_-]+)?/g,
     confidence: "high",
     context: ["elasticsearch", "elastic", "search"],
     prefilter: "elasticsearch"
