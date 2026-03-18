@@ -7,13 +7,15 @@ export const SECRET_PATTERNS = {
   "AWS Access Key": {
     pattern: /[\w.-]{0,50}?(?:aws|AWS)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(AKIA[0-9A-Z]{16})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["aws", "amazon", "cloud"]
+    context: ["aws", "amazon", "cloud"],
+    prefilter: "AKIA"
   },
   // Standalone: AKIA prefix is AWS-specific and unambiguous
   "AWS Access Key (standalone)": {
     pattern: /AKIA[0-9A-Z]{16}/g,
     confidence: "high",
-    context: ["aws", "amazon", "key"]
+    context: ["aws", "amazon", "key"],
+    prefilter: "AKIA"
   },
   "AWS Secret Key": {
     pattern: /[\w.-]{0,50}?(?:aws|AWS)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}([A-Za-z0-9\/+=]{40})(?:[`'"\s;]|\\[nr]|$)/gi,
@@ -23,31 +25,36 @@ export const SECRET_PATTERNS = {
   "GitHub Personal Access Token": {
     pattern: /[\w.-]{0,50}?(?:github|GITHUB)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(ghp_[a-zA-Z0-9]{36})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["github", "personal", "access"]
+    context: ["github", "personal", "access"],
+    prefilter: "ghp_"
   },
   // Standalone: ghp_ prefix is unambiguous, no context required
   "GitHub PAT (standalone)": {
     pattern: /ghp_[a-zA-Z0-9]{36}/g,
     confidence: "high",
-    context: ["github", "token", "access"]
+    context: ["github", "token", "access"],
+    prefilter: "ghp_"
   },
   // GitHub OAuth token
   "GitHub OAuth Token": {
     pattern: /gho_[a-zA-Z0-9]{36}/g,
     confidence: "high",
-    context: ["github", "oauth", "token"]
+    context: ["github", "oauth", "token"],
+    prefilter: "gho_"
   },
   // GitHub Actions server-to-server token
   "GitHub Server Token": {
     pattern: /ghs_[a-zA-Z0-9]{36}/g,
     confidence: "high",
-    context: ["github", "actions", "token"]
+    context: ["github", "actions", "token"],
+    prefilter: "ghs_"
   },
   // GitHub fine-grained personal access token (new format since 2022)
   "GitHub Fine-Grained PAT": {
     pattern: /github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}/g,
     confidence: "high",
-    context: ["github", "token", "access"]
+    context: ["github", "token", "access"],
+    prefilter: "github_pat_"
   },
   "Slack Token": {
     pattern: /[\w.-]{0,50}?(?:slack|SLACK)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(xox[pboa]-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-z0-9]{24,36})(?:[`'"\s;]|\\[nr]|$)/gi,
@@ -83,60 +90,62 @@ export const SECRET_PATTERNS = {
   "JWT Token": {
     pattern: /[\w.-]{0,50}?(?:jwt|JWT)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*)(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "low",
-    context: ["jwt", "token", "bearer"]
+    context: ["jwt", "token", "bearer"],
+    prefilter: "eyJ"
   },
   // Standalone JWT: eyJ header is unambiguous base64-encoded JSON start
   "JWT Token (standalone)": {
     pattern: /eyJ[A-Za-z0-9-_=]{20,}\.[A-Za-z0-9-_=]{20,}\.?[A-Za-z0-9-_.+/=]*/g,
     confidence: "low",
-    context: ["jwt", "token", "bearer"]
+    context: ["jwt", "token", "bearer"],
+    prefilter: "eyJ"
   },
   "Private Key (RSA)": {
     pattern: /-----BEGIN RSA PRIVATE KEY-----(?:.|\n)*?-----END RSA PRIVATE KEY-----/g,
     confidence: "high",
-    context: ["private", "key", "rsa", "ssh"]
+    context: ["private", "key", "rsa", "ssh"],
+    prefilter: "-----BEGIN"
   },
   "Private Key (DSA)": {
     pattern: /-----BEGIN DSA PRIVATE KEY-----(?:.|\n)*?-----END DSA PRIVATE KEY-----/g,
     confidence: "high",
-    context: ["private", "key", "dsa", "ssh"]
+    context: ["private", "key", "dsa", "ssh"],
+    prefilter: "-----BEGIN"
   },
   "Private Key (EC)": {
     pattern: /-----BEGIN EC PRIVATE KEY-----(?:.|\n)*?-----END EC PRIVATE KEY-----/g,
     confidence: "high",
-    context: ["private", "key", "ec", "elliptic"]
+    context: ["private", "key", "ec", "elliptic"],
+    prefilter: "-----BEGIN"
   },
   "PGP Private Key": {
     pattern: /-----BEGIN PGP PRIVATE KEY BLOCK-----(?:.|\n)*?-----END PGP PRIVATE KEY BLOCK-----/g,
     confidence: "high",
-    context: ["pgp", "gpg", "private"]
+    context: ["pgp", "gpg", "private"],
+    prefilter: "-----BEGIN"
   },
   "Heroku API Key": {
     pattern: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g,
     confidence: "medium",
-    context: ["heroku", "api", "key", "app", "config"],
+    context: ["heroku"],
     validation: (match, context) => {
-      // Exclude obvious false positives (GitHub UI elements)
-      if (match.includes('5bef6fb5-cff8-4f28-941e-2d06421392e8') ||
-          match.includes('1eb1a54a-8261-4c15-91bc-e096d196b09b') ||
-          context.surroundingText.includes('data-analytics-event') ||
-          context.surroundingText.includes('Button--iconOnly') ||
-          context.surroundingText.includes('ActionListContent')) {
-        return false;
-      }
+      const text = context.surroundingText.toLowerCase();
 
-      // Allow test cases without context
-      if (match === '3f4beddd-2061-49b0-ae80-6f1f2ed65b37') {
-        return true;
-      }
+      // Exclude common UUID field names that are never API keys
+      const fpFields = [
+        'clientid', 'client_id', 'deviceid', 'device_id',
+        'sessionid', 'session_id', 'userid', 'user_id',
+        'requestid', 'request_id', 'traceid', 'trace_id',
+        'spanid', 'span_id', 'correlationid', 'messagingid',
+        'connectionclass', 'bootloader', 'mqttwebdevice',
+        'data-analytics', 'button--', 'actionlist',
+        '"id":', "'id':", 'transaction_id', 'event_id',
+        'installation_id', 'workspace_id', 'organization_id',
+      ];
+      if (fpFields.some(fp => text.includes(fp))) return false;
 
-      // Check context for Heroku-specific keywords
-      const herokuKeywords = ['heroku', 'api', 'key', 'app', 'config', 'platform'];
-      const hasHerokuContext = herokuKeywords.some(keyword =>
-        context.surroundingText.toLowerCase().includes(keyword)
-      );
-
-      return hasHerokuContext;
+      // Require explicit Heroku mention nearby
+      return text.includes('heroku');
     }
   },
   "Mailgun API Key": {
@@ -158,7 +167,8 @@ export const SECRET_PATTERNS = {
   "Google API Key (standalone)": {
     pattern: /AIzaSy[0-9A-Za-z\-_]{33}/g,
     confidence: "high",
-    context: ["google", "api", "key"]
+    context: ["google", "api", "key"],
+    prefilter: "AIzaSy"
   },
   "Giphy API Key Variable": {
     pattern: /["']?[gG][iI][pP][hH][yY][_][aA][pP][iI][_][kK][eE][yY]["']?\s*[:=]\s*["']([a-zA-Z0-9]{32})["']/g,
@@ -203,22 +213,26 @@ export const SECRET_PATTERNS = {
       }
 
       return true;
-    }
+    },
+    prefilter: "postgresql://"
   },
   "MySQL URL": {
     pattern: /mysql:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+:\d+\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
-    context: ["mysql", "database", "connection", "url"]
+    context: ["mysql", "database", "connection", "url"],
+    prefilter: "mysql://"
   },
   "MongoDB URL": {
     pattern: /mongodb(?:\+srv)?:\/\/[a-zA-Z0-9_-]+:[^@]+@[a-zA-Z0-9.-]+(?:\d+)?\/[a-zA-Z0-9_-]+/g,
     confidence: "high",
-    context: ["mongodb", "database", "connection", "url"]
+    context: ["mongodb", "database", "connection", "url"],
+    prefilter: "mongodb"
   },
   "Redis URL": {
     pattern: /redis:\/\/[^@]*@[a-zA-Z0-9.-]+:\d+/g,
     confidence: "high",
-    context: ["redis", "database", "connection", "url"]
+    context: ["redis", "database", "connection", "url"],
+    prefilter: "redis://"
   },
 
   // CI/CD and Registry credentials
@@ -317,61 +331,71 @@ export const SECRET_PATTERNS = {
   "OpenAI API Key": {
     pattern: /sk-[a-zA-Z0-9_-]{20}T3BlbkFJ[a-zA-Z0-9_-]{20}/g,
     confidence: "high",
-    context: ["openai", "gpt", "api", "chatgpt"]
+    context: ["openai", "gpt", "api", "chatgpt"],
+    prefilter: "T3BlbkFJ"
   },
   // New project-scoped keys (since 2024)
   "OpenAI Project Key": {
     pattern: /sk-proj-[a-zA-Z0-9_-]{48,}/g,
     confidence: "high",
-    context: ["openai", "gpt", "api", "key"]
+    context: ["openai", "gpt", "api", "key"],
+    prefilter: "sk-proj-"
   },
   // Anthropic / Claude API keys
   "Anthropic API Key": {
     pattern: /sk-ant-api[0-9]{2}-[a-zA-Z0-9_-]{93,}/g,
     confidence: "high",
-    context: ["anthropic", "claude", "api", "key"]
+    context: ["anthropic", "claude", "api", "key"],
+    prefilter: "sk-ant-"
   },
   // HuggingFace access tokens — common in ML frontend apps
   "HuggingFace Token": {
     pattern: /hf_[a-zA-Z0-9]{37}/g,
     confidence: "high",
-    context: ["huggingface", "hf", "token", "transformers"]
+    context: ["huggingface", "hf", "token", "transformers"],
+    prefilter: "hf_"
   },
   // npm access token (new format since 2021)
   "npm Access Token": {
     pattern: /npm_[a-zA-Z0-9]{36}/g,
     confidence: "high",
-    context: ["npm", "registry", "token"]
+    context: ["npm", "registry", "token"],
+    prefilter: "npm_"
   },
   // Shopify storefront and admin tokens
   "Shopify Access Token": {
     pattern: /shpat_[a-fA-F0-9]{32}/g,
     confidence: "high",
-    context: ["shopify", "store", "api", "token"]
+    context: ["shopify", "store", "api", "token"],
+    prefilter: "shpat_"
   },
   "Shopify Shared Secret": {
     pattern: /shpss_[a-fA-F0-9]{32}/g,
     confidence: "high",
-    context: ["shopify", "webhook", "secret"]
+    context: ["shopify", "webhook", "secret"],
+    prefilter: "shpss_"
   },
   // Mapbox tokens — common in mapping frontend apps
   // pk.eyJ = public token, sk.eyJ = secret token (both are JWT-based)
   "Mapbox Token": {
     pattern: /[ps]k\.eyJ[a-zA-Z0-9_-]{60,}/g,
     confidence: "high",
-    context: ["mapbox", "map", "token"]
+    context: ["mapbox", "map", "token"],
+    prefilter: ".eyJ"
   },
   // Airtable personal access token (new format since 2023)
   "Airtable PAT": {
     pattern: /pat[a-zA-Z0-9]{14}\.[a-zA-Z0-9]{64}/g,
     confidence: "high",
-    context: ["airtable", "api", "token"]
+    context: ["airtable", "api", "token"],
+    prefilter: "pat"
   },
   // PlanetScale database tokens
   "PlanetScale Token": {
     pattern: /pscale_tkn_[a-zA-Z0-9_]{43}/g,
     confidence: "high",
-    context: ["planetscale", "database", "token"]
+    context: ["planetscale", "database", "token"],
+    prefilter: "pscale_tkn_"
   },
   // Google OAuth client secret (service account or OAuth2 app)
   "Google OAuth Client Secret": {
@@ -399,18 +423,21 @@ export const SECRET_PATTERNS = {
       return /projectId\s*:/.test(match) ||
              /databaseURL\s*:/.test(match) ||
              /authDomain\s*:/.test(match);
-    }
+    },
+    prefilter: "initializeApp"
   },
   "Slack Webhook URL": {
     pattern: /(?:https?:\/\/)?hooks\.slack\.com\/(?:services|workflows|triggers)\/[A-Za-z0-9+\/]{43,56}/g,
     confidence: "high",
-    context: ["slack", "webhook", "url"]
+    context: ["slack", "webhook", "url"],
+    prefilter: "hooks.slack.com"
   },
 
   "SendGrid API Key": {
     pattern: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43,}/g,
     confidence: "high",
-    context: ["sendgrid", "email", "api"]
+    context: ["sendgrid", "email", "api"],
+    prefilter: "SG."
   },
 
   "Algolia API Key": {
@@ -422,7 +449,8 @@ export const SECRET_PATTERNS = {
   "Cloudinary URL": {
     pattern: /cloudinary:\/\/[0-9]+:[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+/g,
     confidence: "high",
-    context: ["cloudinary", "image", "upload"]
+    context: ["cloudinary", "image", "upload"],
+    prefilter: "cloudinary://"
   },
 
   "Elasticsearch URL": {
@@ -465,58 +493,68 @@ export const SECRET_PATTERNS = {
   "Telegram Bot Token (standalone)": {
     pattern: /(?<![0-9])[0-9]{6,12}:AA[A-Za-z0-9_-]{30,36}(?![A-Za-z0-9_-])/g,
     confidence: "high",
-    context: ["telegram", "bot", "token"]
+    context: ["telegram", "bot", "token"],
+    prefilter: ":AA"
   },
 
   "Slack Bot Token": {
     pattern: /xoxb-[0-9]{10,13}-[0-9]{10,13}-[0-9]{10,13}-[a-z0-9]{24,36}/g,
     confidence: "high",
-    context: ["slack", "bot", "token"]
+    context: ["slack", "bot", "token"],
+    prefilter: "xoxb-"
   },
 
   "GitLab Personal Access Token": {
     pattern: /[\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(glpat-[A-Za-z0-9_-]{20})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["gitlab", "personal", "access", "token"]
+    context: ["gitlab", "personal", "access", "token"],
+    prefilter: "glpat-"
   },
   // Standalone: glpat- prefix is GitLab-specific
   "GitLab PAT (standalone)": {
     pattern: /glpat-[A-Za-z0-9_-]{20}/g,
     confidence: "high",
-    context: ["gitlab", "token", "access"]
+    context: ["gitlab", "token", "access"],
+    prefilter: "glpat-"
   },
 
   "GitLab Pipeline Trigger Token": {
     pattern: /[\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(glptt-[A-Za-z0-9_-]{20})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["gitlab", "pipeline", "trigger", "token"]
+    context: ["gitlab", "pipeline", "trigger", "token"],
+    prefilter: "glptt-"
   },
   "GitLab Pipeline Trigger Token (standalone)": {
     pattern: /glptt-[A-Za-z0-9_-]{20}/g,
     confidence: "high",
-    context: ["gitlab", "pipeline", "trigger"]
+    context: ["gitlab", "pipeline", "trigger"],
+    prefilter: "glptt-"
   },
 
   "GitLab Deploy Token": {
     pattern: /[\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(gldt-[A-Za-z0-9_-]{20})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["gitlab", "deploy", "token"]
+    context: ["gitlab", "deploy", "token"],
+    prefilter: "gldt-"
   },
   "GitLab Deploy Token (standalone)": {
     pattern: /gldt-[A-Za-z0-9_-]{20}/g,
     confidence: "high",
-    context: ["gitlab", "deploy", "token"]
+    context: ["gitlab", "deploy", "token"],
+    prefilter: "gldt-"
   },
 
   "GitLab Runner Token": {
     pattern: /[\w.-]{0,50}?(?:gitlab|GITLAB)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(glrt-[A-Za-z0-9_-]{20})(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "high",
-    context: ["gitlab", "runner", "token"]
+    context: ["gitlab", "runner", "token"],
+    prefilter: "glrt-"
   },
   "GitLab Runner Token (standalone)": {
     pattern: /glrt-[A-Za-z0-9_-]{20}/g,
     confidence: "high",
-    context: ["gitlab", "runner", "token"]
+    context: ["gitlab", "runner", "token"],
+    prefilter: "glrt-"
   },
 
   "GitLab Deploy Key": {

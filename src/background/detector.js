@@ -6,52 +6,52 @@ import { debugLog, decodeJWT, calculateShannonEntropy } from './utils.js';
 // Enhanced secret detection with context analysis
 export async function detectSecrets(content, source, parentUrl, parentOrigin) {
   const findings = [];
-  const lines = content.split('\n');
 
-  // Check debug mode
+  // Check debug mode once — never read storage inside the match loop
   const settings = await chrome.storage.local.get(['debugMode', 'confidenceThreshold']);
   const isDebugMode = settings.debugMode || false;
 
-  await debugLog(`Scanning content from ${source} (${content.length} chars, ${lines.length} lines)`);
   if (isDebugMode) {
+    await debugLog(`Scanning content from ${source} (${content.length} chars)`);
     await debugLog(`Content preview: ${content.substring(0, 200)}...`);
+    await debugLog(`Settings:`, settings);
   }
-  await debugLog(`Settings:`, settings);
 
   for (const [secretType, config] of Object.entries(SECRET_PATTERNS)) {
     try {
+      // Prefilter: skip expensive regex if required marker string is absent
+      if (config.prefilter && !content.includes(config.prefilter)) continue;
+
       const matches = content.matchAll(config.pattern);
       let matchCount = 0;
 
       for (const match of matches) {
         matchCount++;
-        await debugLog(`Found match for ${secretType}:`, match[0]);
 
         const matchedValue = match[0];
+        const matchIndex = match.index;
 
         // Skip if it's a known false positive
         if (FALSE_POSITIVE_PATTERNS.some(fp => fp.test(matchedValue))) {
-          if (isDebugMode) {
-            await debugLog(`Skipping known false positive for ${secretType}:`, matchedValue);
-          }
           continue;
         }
 
-        // Context analysis to reduce false positives
-        const context = analyzeContext(content, matchedValue, lines);
+        // Context analysis — uses match.index directly, no indexOf scan
+        const context = analyzeContext(content, matchedValue, matchIndex);
 
         // Run validation function if it exists (normalise sync/async via Promise.resolve)
         if (config.validation && !(await Promise.resolve(config.validation(matchedValue, context)))) {
           if (isDebugMode) {
-            await debugLog(`Validation failed for ${secretType}:`, matchedValue);
+            await debugLog(`Validation failed for ${secretType}:`, matchedValue.substring(0, 40));
           }
           continue;
         }
 
         const confidence = calculateConfidence(config, context, matchedValue, secretType);
 
-        await debugLog(`Confidence for ${secretType}: ${confidence}`);
-        console.log('[SecretRadar Debug] Secret found:', { type: secretType, value: matchedValue.substring(0, 20) + '...', confidence });
+        if (isDebugMode) {
+          await debugLog(`${secretType} confidence=${confidence.toFixed(2)} value=${matchedValue.substring(0, 30)}`);
+        }
 
         if (confidence > 0.3) { // Minimum confidence threshold
           let displayValue = matchedValue;
@@ -105,25 +105,24 @@ export async function detectSecrets(content, source, parentUrl, parentOrigin) {
         }
       }
 
-      if (matchCount > 0) {
-        await debugLog(`Found ${matchCount} matches for ${secretType}`);
+      if (isDebugMode && matchCount > 0) {
+        await debugLog(`${secretType}: ${matchCount} matches`);
       }
     } catch (error) {
       console.error(`Error processing ${secretType}:`, error);
-      await debugLog(`Error processing ${secretType}:`, error);
     }
   }
 
-  await debugLog(`Total findings: ${findings.length}`);
-  if (findings.length > 0) {
-    await debugLog(`Findings:`, findings.map(f => `${f.type}: ${f.match.substring(0, 50)}...`));
+  if (isDebugMode) {
+    await debugLog(`Total findings: ${findings.length}`);
   }
 
   return findings;
 }
 
 // Analyze context around the match to reduce false positives
-export function analyzeContext(content, match, lines) {
+// matchIndex is match.index from matchAll — free, no indexOf scan needed
+export function analyzeContext(content, match, matchIndex) {
   const context = {
     surroundingText: '',
     keywords: [],
@@ -131,9 +130,7 @@ export function analyzeContext(content, match, lines) {
   };
 
   try {
-    // Find the line containing the match
-    const matchIndex = content.indexOf(match);
-    if (matchIndex === -1) return context;
+    if (matchIndex === undefined || matchIndex === -1) return context;
 
     // Get surrounding text (200 characters before and after)
     const start = Math.max(0, matchIndex - 200);

@@ -38,12 +38,13 @@
     {
       "matches": ["https://*/*", "http://*/*", "file://*/*"],
       "js": ["SecretRadar.js"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["SecretRadar.js", "dashboard.html"],
+      "resources": ["dashboard.html"],
       "matches": ["https://*/*", "http://*/*", "file://*/*"]
     }
   ]

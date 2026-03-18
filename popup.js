@@ -8,18 +8,12 @@ import { triggerScan, forceScan, clearCache, exportFindings, clearDeniedDomainFi
 import { clearCurrentTabFindings, clearAllData } from './src/popup/findings.js';
 import { resetSettings, toggleAdvancedSettings } from './src/popup/settings.js';
 
-// CRITICAL: expose removeFromDenyList globally for inline onclick handlers in loadDenyList
-window.removeFromDenyList = removeFromDenyList;
-
 document.addEventListener('DOMContentLoaded', async function() {
-  // Notify background script that popup is opened
-  await chrome.runtime.sendMessage({ action: 'popupOpened' });
+  // Notify background script that popup is opened (fire-and-forget)
+  chrome.runtime.sendMessage({ action: 'popupOpened' }).catch(() => {});
 
-  // Initialize settings
-  await initializeSettings();
-
-  // Load current tab findings
-  await loadCurrentTabFindings();
+  // Initialize settings and load findings in parallel
+  await Promise.all([initializeSettings(), loadCurrentTabFindings()]);
 
   // Setup event listeners
   setupEventListeners();
@@ -161,6 +155,15 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Deny list remove button handler (delegated event)
+  document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.deny-remove-btn');
+    if (removeBtn) {
+      const domain = removeBtn.getAttribute('data-domain');
+      if (domain) removeFromDenyList(domain);
+    }
+  });
 
   // Source link click handler (delegated event)
   document.addEventListener('click', (e) => {

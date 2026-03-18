@@ -97,13 +97,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           return;
         }
 
-        // Clear cache and notification throttle so the scan is fresh
-        const cacheKey = tab.url;
-        processedUrls.delete(cacheKey);
+        // Clear cache for current origin — ensures external scripts are re-fetched
+        // (processedUrls keys are scriptUrls and page origins, filter by current origin)
+        let origin;
         try {
-          const origin = new URL(tab.url).origin;
+          origin = new URL(tab.url).origin;
           notifiedOrigins.delete(origin);
         } catch (e) { /* ignore invalid URLs */ }
+        for (const key of processedUrls.keys()) {
+          if (key === tab.url || (origin && key.includes(origin))) {
+            processedUrls.delete(key);
+          }
+        }
 
         // Send message to already-loaded content script
         try {

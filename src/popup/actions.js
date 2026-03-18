@@ -116,6 +116,13 @@ export async function clearCache() {
   }
 }
 
+// Safely escape a value for CSV (prevents formula injection)
+function csvEscape(value) {
+  const str = String(value ?? '').replace(/"/g, '""');
+  // Prefix formula-starting characters to prevent spreadsheet injection
+  return `"${/^[=+\-@\t\r]/.test(str) ? "'" + str : str}"`;
+}
+
 // Export findings to CSV
 export async function exportFindings() {
   try {
@@ -126,7 +133,7 @@ export async function exportFindings() {
 
     for (const [origin, originFindings] of Object.entries(findings)) {
       for (const finding of originFindings) {
-        csvContent += `"${origin}","${finding.type}","${finding.source}","${finding.match}",${finding.confidence},${new Date(finding.timestamp).toISOString()}\n`;
+        csvContent += `${csvEscape(origin)},${csvEscape(finding.type)},${csvEscape(finding.source)},${csvEscape(finding.match)},${finding.confidence},${new Date(finding.timestamp).toISOString()}\n`;
       }
     }
 

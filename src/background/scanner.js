@@ -1,15 +1,13 @@
 // SecretRadar - Scanner (Background)
 
-import { debugLog, debounce } from './utils.js';
+import { debugLog } from './utils.js';
 import { isOriginDenied } from './denylist.js';
 import { detectSecrets } from './detector.js';
-import { processedUrls, newFindings, CACHE_DURATION, storeFindings } from './storage.js';
+import { processedUrls, CACHE_DURATION, storeFindings } from './storage.js';
 import { updateBadge, queueNotification } from './notifications.js';
 
 // Optimized data checking with caching
-let checkDataCallCount = 0;
-export const checkData = debounce(async function(data, src, parentUrl, parentOrigin) {
-  checkDataCallCount++;
+export async function checkData(data, src, parentUrl, parentOrigin) {
 
   try {
     const settings = await chrome.storage.local.get(['autoScan', 'confidenceThreshold', 'debugMode']);
@@ -83,7 +81,7 @@ export const checkData = debounce(async function(data, src, parentUrl, parentOri
       console.error('Error in checkData:', error);
     }
   }
-}, 100); // Reduced debounce time for faster processing
+}
 
 // Parse and analyze source map
 export async function scanSourceMap(sourceMapUrl, parentUrl, parentOrigin) {

@@ -1,7 +1,6 @@
 // SecretRadar - Notifications (Background)
 
 import { debugLog } from './utils.js';
-import { newFindings } from './state.js';
 
 export const notificationQueue = new Map(); // origin -> { count: number, timer: timeout }
 export const notifiedOrigins = new Set(); // Track origins that have been notified
@@ -75,106 +74,34 @@ export async function showGroupedNotification(origin, count) {
   }
 }
 
-// Show notification for high-confidence findings (legacy - now replaced by queueNotification)
-export async function showNotification(finding) {
-  try {
-    const settings = await chrome.storage.local.get(['enableNotifications', 'debugMode']);
-
-    // Check if this is a new finding
-    const findingId = `${finding.type}-${finding.match}-${finding.source}`;
-    if (!newFindings.has(findingId)) {
-      await debugLog('Skipping notification - not a new finding');
-      return;
-    }
-
-    await debugLog(`Notification check - enableNotifications: ${settings.enableNotifications}, debugMode: ${settings.debugMode}`);
-    await debugLog(`Security Alert: High-confidence ${finding.type} detected on ${finding.parentOrigin}`);
-
-    // Show browser notification if enabled
-    if (settings.enableNotifications) {
-      await debugLog('Creating browser notification...');
-      const notificationId = await chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon48.png',
-        title: 'SecretRadar Security Alert',
-        message: `High-confidence ${finding.type} detected on ${finding.parentOrigin}`
-      });
-      await debugLog('Notification created with ID:', notificationId);
-    } else {
-      await debugLog('Notifications are disabled in settings');
-    }
-
-    // Update badge
-    await updateBadge(finding.parentOrigin);
-  } catch (error) {
-    // Get settings again in case of error
-    try {
-      const errorSettings = await chrome.storage.local.get(['debugMode']);
-      if (errorSettings.debugMode) {
-        await debugLog('Error showing notification:', error);
-      }
-    } catch (settingsError) {
-      await debugLog('Error showing notification:', error);
-    }
-  }
-}
-
 // Update badge with finding count for specific origin
 export async function updateBadge(origin) {
   try {
     await debugLog(`Updating badge for origin: ${origin}`);
 
-    const storage = await chrome.storage.local.get(['findings']);
+    const storage = await chrome.storage.local.get(['findings', 'confidenceThreshold']);
+    const threshold = storage.confidenceThreshold ?? 0.3;
 
-    // Count findings for the specific origin
+    // Count findings for the specific origin above confidence threshold
     let originCount = 0;
-    let totalCount = 0;
 
     if (storage.findings) {
-      for (const key in storage.findings) {
-        const findings = storage.findings[key];
-        totalCount += findings.length;
-
-        // Count findings for this specific origin
-        const originFindings = findings.filter(finding => finding.parentOrigin === origin);
-        originCount += originFindings.length;
-      }
-    }
-
-    // Count new findings for this origin
-    let newCountForOrigin = 0;
-    for (const findingId of newFindings) {
-      // Extract origin from findingId (format: "type-match-source")
-      const parts = findingId.split('-');
-      if (parts.length >= 3) {
-        const source = parts.slice(2).join('-'); // Reconstruct source
-        try {
-          const sourceOrigin = new URL(source).origin;
-          if (sourceOrigin === origin) {
-            newCountForOrigin++;
-          }
-        } catch (urlError) {
-          // If source is not a URL, check if it contains the origin
-          if (source.includes(origin)) {
-            newCountForOrigin++;
+      for (const findings of Object.values(storage.findings)) {
+        for (const finding of findings) {
+          if (finding.parentOrigin === origin && finding.confidence >= threshold) {
+            originCount++;
           }
         }
       }
     }
 
-    // Show only origin-specific count, no fallback to total count
-    const badgeText = newCountForOrigin > 0 ? `!${newCountForOrigin}` :
-                     (originCount > 0 ? originCount.toString() : '');
+    const badgeText = originCount > 0 ? originCount.toString() : '';
 
-    await debugLog(`Badge text: ${badgeText} (origin: ${originCount}, new: ${newCountForOrigin}, total: ${totalCount})`);
+    await debugLog(`Badge text: ${badgeText} (origin: ${originCount}, threshold: ${threshold})`);
 
-    await chrome.action.setBadgeText({
-      text: badgeText
-    });
-
+    await chrome.action.setBadgeText({ text: badgeText });
     await chrome.action.setBadgeBackgroundColor({
-      color: newCountForOrigin > 0 ? '#ff6600' :
-             (originCount > 0 ? '#ff0000' : '#6c757d')
+      color: originCount > 0 ? '#ff0000' : '#6c757d'
     });
   } catch (error) {
     console.error('Error updating badge:', error);

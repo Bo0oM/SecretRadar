@@ -148,95 +148,57 @@
     }
   }, 1000); // Debounce for 1 second
 
-  // Scan external scripts with caching
+  // Send one script URL to SW — used inside batched scanner
+  async function sendScriptMessage(scriptSrc) {
+    try {
+      return await chrome.runtime.sendMessage({
+        scriptUrl: scriptSrc,
+        parentUrl: window.location.href,
+        parentOrigin: window.location.origin
+      });
+    } catch (error) {
+      if (error.message && error.message.includes('Extension context invalidated')) {
+        throw error; // propagate to abort the batch loop
+      }
+      return null;
+    }
+  }
+
+  // Scan external scripts — batched (5 parallel) to avoid sequential latency
   async function scanExternalScripts() {
     try {
+      if (window.self !== window.top) return; // skip in iframes
       const settings = await chrome.storage.local.get(['scanExternalScripts', 'debugMode']);
-      if (settings.scanExternalScripts === false) {
-        if (settings.debugMode) {
-          await debugLog('External scripts scanning disabled');
-        }
-        return;
-      }
-      
+      if (settings.scanExternalScripts === false) return;
+
       const scripts = document.querySelectorAll('script[src]');
-      const processedScripts = new Set();
-      
-      if (settings.debugMode) {
-        await debugLog(`Found ${scripts.length} external scripts to scan`);
-      }
-      
+      const seen = new Set();
+      const urls = [];
+
       for (const script of scripts) {
-        let scriptSrc = script.src;
-        
-        // Normalize script URL
-        if (scriptSrc.startsWith('//')) {
-          scriptSrc = location.protocol + scriptSrc;
+        let src = script.src;
+        if (src.startsWith('//')) src = location.protocol + src;
+        if (!seen.has(src)) {
+          seen.add(src);
+          urls.push(src);
         }
-        
-        // Skip if already processed in this session
-        if (processedScripts.has(scriptSrc)) {
-          if (settings.debugMode) {
-            await debugLog(`Skipping already processed script: ${scriptSrc}`);
-          }
-          continue;
-        }
-        
-        processedScripts.add(scriptSrc);
-        
-        try {
-          if (settings.debugMode) {
-            await debugLog(`Sending script to background: ${scriptSrc}`);
-          }
-          
-          const result = await chrome.runtime.sendMessage({
-            scriptUrl: scriptSrc,
-            parentUrl: window.location.href,
-            parentOrigin: window.location.origin
-          });
-          
-          if (settings.debugMode) {
-            await debugLog(`Script result:`, result);
-          }
-          
-          if (settings.debugMode) {
-            if (result && result.reason === 'csp_error') {
-              await debugLog(`CSP error for script: ${scriptSrc}`);
-            } else if (result && result.reason === 'disabled') {
-              await debugLog(`Script scanning disabled for: ${scriptSrc}`);
-            } else if (result && result.reason === 'cached') {
-              await debugLog(`Script already cached: ${scriptSrc}`);
-            }
-          }
-        } catch (error) {
-          // Handle extension context invalidated error
-          if (error.message && error.message.includes('Extension context invalidated')) {
-            if (settings.debugMode) {
-              await debugLog('Extension context invalidated, stopping script scan');
-            }
-            return; // Stop scanning scripts
-          }
-          
-          if (settings.debugMode) {
-            await debugLog('Error scanning script:', scriptSrc, error);
-          }
-        }
+      }
+
+      if (settings.debugMode) {
+        await debugLog(`Scanning ${urls.length} external scripts (batched)`);
+      }
+
+      // Process in batches of 5 — avoids sequential latency without WAF-triggering burst
+      for (let i = 0; i < urls.length; i += 5) {
+        const batch = urls.slice(i, i + 5);
+        await Promise.allSettled(batch.map(src => sendScriptMessage(src)));
       }
     } catch (error) {
-      // Handle extension context invalidated error
-      if (error.message && error.message.includes('Extension context invalidated')) {
-        await debugLog('Extension context invalidated, stopping external scripts scan');
-        return;
-      }
-      
+      if (error.message && error.message.includes('Extension context invalidated')) return;
       try {
         const settings = await chrome.storage.local.get(['debugMode']);
-        if (settings.debugMode) {
-          await debugLog('Error in scanExternalScripts:', error);
-        }
-      } catch (settingsError) {
-        await debugLog('Error in scanExternalScripts:', error);
-      }
+        if (settings.debugMode) await debugLog('Error in scanExternalScripts:', error);
+      } catch (_) {}
     }
   }
 
@@ -314,6 +276,7 @@
   // Scan for sensitive files with improved patterns
   async function scanSensitiveFiles() {
     try {
+      if (window.self !== window.top) return; // skip in iframes
       const settings = await chrome.storage.local.get(['scanSensitiveFiles', 'debugMode']);
       if (settings.scanSensitiveFiles === false) {
         if (settings.debugMode) {
@@ -349,34 +312,21 @@
       ];
 
       if (settings.debugMode) {
-        await debugLog(`Scanning ${sensitiveFiles.length} sensitive files`);
+        await debugLog(`Scanning ${sensitiveFiles.length} sensitive files (batched)`);
       }
 
-      for (const file of sensitiveFiles) {
-        const fileUrl = baseUrl + file;
-        
-        try {
-          const result = await chrome.runtime.sendMessage({
+      const fileUrls = sensitiveFiles.map(f => baseUrl + f);
+
+      // Process in batches of 5 — ~5x faster than sequential on typical latency
+      for (let i = 0; i < fileUrls.length; i += 5) {
+        const batch = fileUrls.slice(i, i + 5);
+        await Promise.allSettled(batch.map(fileUrl =>
+          chrome.runtime.sendMessage({
             envFile: fileUrl,
             parentUrl: window.location.href,
             parentOrigin: window.location.origin
-          });
-          
-          if (settings.debugMode) {
-            if (result && result.reason === 'csp_error') {
-              await debugLog(`CSP error for file: ${fileUrl}`);
-            } else if (result && result.reason === 'disabled') {
-              await debugLog(`File scanning disabled for: ${fileUrl}`);
-            }
-          }
-        } catch (error) {
-          // Silently ignore 404 errors for missing files
-          if (!error.message.includes('404')) {
-            if (settings.debugMode) {
-              await debugLog('Error scanning file:', fileUrl, error);
-            }
-          }
-        }
+          }).catch(() => null)
+        ));
       }
     } catch (error) {
       // Handle extension context invalidated error
