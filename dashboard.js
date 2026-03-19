@@ -419,10 +419,75 @@ function clearFilters() {
   });
 }
 
-// Update charts
-async function updateCharts() {
-  // Charts removed due to CSP restrictions
-  await debugLog('Charts disabled due to Content Security Policy');
+// Update charts — pure HTML/CSS bars, no external dependencies
+function updateCharts() {
+  const findings = dashboardState.findings;
+
+  // 1. Findings by Type
+  const byType = {};
+  for (const f of findings) byType[f.type] = (byType[f.type] || 0) + 1;
+  renderBarChart('typeChart', byType, 10);
+
+  // 2. Findings by Site
+  const bySite = {};
+  for (const f of findings) {
+    const label = f.origin.replace(/^https?:\/\//, '');
+    bySite[label] = (bySite[label] || 0) + 1;
+  }
+  renderBarChart('siteChart', bySite, 8);
+
+  // 3. Timeline (last 14 days)
+  const byDay = {};
+  const now = Date.now();
+  const DAY = 86400000;
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(now - i * DAY);
+    byDay[d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })] = 0;
+  }
+  for (const f of findings) {
+    const d = new Date(f.timestamp);
+    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (key in byDay) byDay[key]++;
+  }
+  renderBarChart('timelineChart', byDay, 14, true);
+
+  // 4. Confidence Distribution
+  const conf = { 'High (80%+)': 0, 'Medium (50–79%)': 0, 'Low (<50%)': 0 };
+  for (const f of findings) {
+    if (f.confidence >= 0.8) conf['High (80%+)']++;
+    else if (f.confidence >= 0.5) conf['Medium (50–79%)']++;
+    else conf['Low (<50%)']++;
+  }
+  renderBarChart('confidenceChart', conf, 3);
+}
+
+function renderBarChart(containerId, data, maxItems, preserveOrder = false) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const entries = preserveOrder
+    ? Object.entries(data)
+    : Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, maxItems);
+
+  if (entries.length === 0 || entries.every(([, v]) => v === 0)) {
+    container.innerHTML = '<p class="no-data">No data available</p>';
+    return;
+  }
+
+  const max = Math.max(...entries.map(([, v]) => v), 1);
+
+  container.innerHTML = entries.map(([label, value]) => {
+    const pct = Math.round((value / max) * 100);
+    const short = label.length > 32 ? label.substring(0, 30) + '…' : label;
+    return `
+      <div class="chart-row">
+        <div class="chart-label" title="${escapeHtml(label)}">${escapeHtml(short)}</div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="width:${pct}%"></div>
+          <span class="chart-value">${value}</span>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // Export all findings

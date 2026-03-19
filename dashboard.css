@@ -399,10 +399,49 @@ body {
 }
 
 .chart-container {
-  min-height: 200px;
+  min-height: 120px;
+  width: 100%;
+  display: block;
+  padding-top: 4px;
+}
+
+.chart-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.chart-label {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #495057;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.chart-bar-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-bar {
+  height: 16px;
+  background: #4a9eff;
+  border-radius: 3px;
+  min-width: 2px;
+  transition: width 0.3s ease;
+}
+
+.chart-value {
+  font-size: 11px;
+  color: #6c757d;
+  white-space: nowrap;
 }
 
 .no-data {
