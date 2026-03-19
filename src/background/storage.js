@@ -127,41 +127,14 @@ export async function cleanupOldFindings() {
 // Function to clear cache manually
 export function clearCache() {
   processedUrls.clear();
-  console.log('[SecretRadar] Cache cleared');
 }
 
 // Function to clear new findings for specific origin
 export function clearNewFindingsForOrigin(origin) {
-  const findingsToRemove = [];
-
-  for (const findingId of newFindings) {
-    // Extract origin from findingId (format: "type-match-source")
-    const parts = findingId.split('-');
-    if (parts.length >= 3) {
-      const source = parts.slice(2).join('-'); // Reconstruct source
-      try {
-        const sourceOrigin = new URL(source).origin;
-        if (sourceOrigin === origin) {
-          findingsToRemove.push(findingId);
-        }
-      } catch (urlError) {
-        // If source is not a URL, check if it contains the origin
-        if (source.includes(origin)) {
-          findingsToRemove.push(findingId);
-        }
-      }
-    }
-  }
-
-  // Remove findings for this origin
-  for (const findingId of findingsToRemove) {
-    newFindings.delete(findingId);
-  }
+  // newFindings is in-memory session state not used for display decisions —
+  // clear entirely on tab switch (harmless over-clear)
+  newFindings.clear();
 
   // Reset notification throttle so future findings on this origin notify again
   notifiedOrigins.delete(origin);
-
-  if (findingsToRemove.length > 0) {
-    console.log(`[SecretRadar] Cleared ${findingsToRemove.length} new findings for ${origin}`);
-  }
 }

@@ -118,5 +118,4 @@ export function clearNotificationQueue() {
   }
   notificationQueue.clear();
   notifiedOrigins.clear();
-  console.log('[SecretRadar] Notification queue and tracking cleared');
 }

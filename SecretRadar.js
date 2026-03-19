@@ -54,12 +54,12 @@
           parentUrl: parentUrl,
           parentOrigin: parentOrigin
         });
-        
+
         if (settings.debugMode) {
           await debugLog('Manual scan result:', pageResult);
         }
       } catch (error) {
-        console.log('[SecretRadar Debug] Error sending page content:', error);
+        await debugLog('Error sending page content:', error);
         throw error;
       }
 
@@ -82,6 +82,7 @@
   // Enhanced page scanning with performance optimizations
   const scanPage = debounce(async function() {
     try {
+      if (window.self !== window.top) return; // skip in iframes — pageBody handled by top frame
       const settings = await chrome.storage.local.get(['autoScan', 'debugMode']);
       
       if (settings.debugMode) {
@@ -112,12 +113,12 @@
           parentUrl: parentUrl,
           parentOrigin: parentOrigin
         });
-        
+
         if (settings.debugMode) {
           await debugLog('Page scan result:', pageResult);
         }
       } catch (error) {
-        console.log('[SecretRadar Debug] Error sending page content:', error);
+        await debugLog('Error sending page content:', error);
         throw error;
       }
 
@@ -205,6 +206,7 @@
   // Scan for source maps
   async function scanSourceMaps() {
     try {
+      if (window.self !== window.top) return; // skip in iframes
       const settings = await chrome.storage.local.get(['scanSourceMaps', 'debugMode']);
       if (settings.scanSourceMaps === false) {
         if (settings.debugMode) {

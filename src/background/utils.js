@@ -1,26 +1,16 @@
 // SecretRadar - Background Utilities
 
-// Debug logging helper function
-export async function debugLog(message, ...args) {
-  try {
-    const settings = await chrome.storage.local.get(['debugMode']);
-    if (settings.debugMode) {
-      console.log('[SecretRadar Debug]', message, ...args);
-    }
-  } catch (error) {
+// Cache debugMode to avoid storage read on every debugLog call
+let _debugMode = false;
+chrome.storage.local.get(['debugMode']).then(s => { _debugMode = s.debugMode || false; }).catch(() => {});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.debugMode !== undefined) {
+    _debugMode = changes.debugMode.newValue || false;
   }
-}
+});
 
-export function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      return func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
+export function debugLog(message, ...args) {
+  if (_debugMode) console.log('[SecretRadar Debug]', message, ...args);
 }
 
 // JWT Decoder function with enhanced time analysis

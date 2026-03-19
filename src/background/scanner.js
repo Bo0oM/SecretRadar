@@ -167,36 +167,26 @@ export async function scanSourceMap(sourceMapUrl, parentUrl, parentOrigin) {
 }
 
 export async function handleMessage(request, sender) {
-  console.log('[SecretRadar Debug] handleMessage called with:', request);
-  console.log('[SecretRadar Debug] Request keys:', Object.keys(request));
-  console.log('[SecretRadar Debug] Has pageBody:', !!request.pageBody);
-  console.log('[SecretRadar Debug] Has scriptUrl:', !!request.scriptUrl);
   try {
     const url = request.origin || request.scriptUrl;
     const isDenied = await isOriginDenied(url);
     if (isDenied) {
-      console.log('[SecretRadar Debug] Origin denied:', url);
       return { success: false, reason: 'denied' };
     }
 
     if (request.pageBody) {
-      console.log('[SecretRadar Debug] Processing pageBody from:', request.origin, 'length:', request.pageBody.length);
       // Handle scripting injection messages
       const source = request.source || 'content-script';
-      console.log('[SecretRadar Debug] Page body source:', source);
-      console.log('[SecretRadar Debug] Page body keys:', Object.keys(request));
       await debugLog('handleMessage: Received pageBody from', source);
       await debugLog('handleMessage: Origin:', request.origin);
       await debugLog('handleMessage: Page body length:', request.pageBody.length);
 
-      console.log('[SecretRadar Debug] Calling checkData for pageBody');
       await checkData(
         request.pageBody,
         request.origin,
         request.parentUrl,
         request.parentOrigin
       );
-      console.log('[SecretRadar Debug] checkData completed for pageBody');
       return { success: true };
     } else if (request.scriptUrl) {
       // Check scanExternalScripts setting

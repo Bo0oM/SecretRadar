@@ -1,14 +1,11 @@
 // SecretRadar - Popup UI Utilities
 
-// Debug logging helper function
-export async function debugLog(message, ...args) {
-  try {
-    const settings = await chrome.storage.local.get(['debugMode']);
-    if (settings.debugMode) {
-      console.log('[SecretRadar Debug]', message, ...args);
-    }
-  } catch (error) {
-  }
+// Cache debugMode — popup is short-lived, one read at startup is enough
+let _debugMode = false;
+chrome.storage.local.get(['debugMode']).then(s => { _debugMode = s.debugMode || false; }).catch(() => {});
+
+export function debugLog(message, ...args) {
+  if (_debugMode) console.log('[SecretRadar Debug]', message, ...args);
 }
 
 // Show notification
@@ -80,20 +77,7 @@ export function isValidDomain(domain) {
   return domainPattern.test(domain);
 }
 
-// Helper function to match deny pattern (copied from background.js)
-export function matchesDenyPattern(domain, pattern) {
-  // Remove protocol if present in pattern
-  pattern = pattern.replace(/^https?:\/\//, '');
-
-  // Handle wildcard patterns
-  if (pattern.startsWith('*.')) {
-    const baseDomain = pattern.substring(2); // Remove '*.'
-    return domain === baseDomain || domain.endsWith('.' + baseDomain);
-  }
-
-  // Handle exact domain match
-  return domain === pattern;
-}
+export { matchesDenyPattern } from '../shared/denylist-utils.js';
 
 // Setup filters for findings
 export function setupFilters() {

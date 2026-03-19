@@ -76,10 +76,10 @@ function setupEventListeners() {
   filterSelects.forEach(filterId => {
     const element = document.getElementById(filterId);
     if (element) {
-      element.addEventListener('change', async (e) => {
+      element.addEventListener('change', (e) => {
         dashboardState.filters[filterId.replace('Filter', '')] = e.target.value;
         dashboardState.currentPage = 1;
-        await applyFilters();
+        applyFilters();
         updateFindingsDisplay();
       });
     }
@@ -88,9 +88,9 @@ function setupEventListeners() {
   // Sort control
   const sortSelect = document.getElementById('sortBy');
   if (sortSelect) {
-    sortSelect.addEventListener('change', async (e) => {
+    sortSelect.addEventListener('change', (e) => {
       dashboardState.sortBy = e.target.value;
-      await applyFilters();
+      applyFilters();
       updateFindingsDisplay();
     });
   }
@@ -163,9 +163,9 @@ function setupEventListeners() {
   
   const clearFiltersButton = document.getElementById('clearFilters');
   if (clearFiltersButton) {
-    clearFiltersButton.addEventListener('click', async () => {
+    clearFiltersButton.addEventListener('click', () => {
       clearFilters();
-      await applyFilters();
+      applyFilters();
       updateFindingsDisplay();
     });
   }
@@ -217,12 +217,10 @@ function applyFilters() {
   
   // Apply site filter
   if (dashboardState.filters.site) {
-    filtered = filtered.filter(finding => 
+    filtered = filtered.filter(finding =>
       finding.origin.includes(dashboardState.filters.site)
     );
   }
-  
-
 
   // Apply confidence filter
   if (dashboardState.filters.confidence) {
@@ -310,8 +308,6 @@ function updateFilters() {
     siteFilter.innerHTML = '<option value="">All Sites</option>' +
       sites.map(site => `<option value="${escapeHtml(site)}">${escapeHtml(site)}</option>`).join('');
   }
-  
-
 }
 
 // Update findings display
@@ -490,14 +486,19 @@ function renderBarChart(containerId, data, maxItems, preserveOrder = false) {
   }).join('');
 }
 
+function csvEscape(value) {
+  const str = String(value ?? '').replace(/"/g, '""');
+  return `"${/^[=+\-@\t\r]/.test(str) ? "'" + str : str}"`;
+}
+
 // Export all findings
 async function exportAllFindings() {
   try {
     let csvContent = 'Origin,Type,Source,Match,Confidence,Timestamp,Context\n';
-    
+
     for (const finding of dashboardState.findings) {
       const context = finding.context.surroundingText || '';
-      csvContent += `"${finding.origin}","${finding.type}","${finding.source}","${finding.match}",${finding.confidence},${new Date(finding.timestamp).toISOString()},"${context}"\n`;
+      csvContent += `${csvEscape(finding.origin)},${csvEscape(finding.type)},${csvEscape(finding.source)},${csvEscape(finding.match)},${finding.confidence},${new Date(finding.timestamp).toISOString()},${csvEscape(context)}\n`;
     }
     
     // Create download link
@@ -556,5 +557,3 @@ function showNotification(message, type = 'info') {
 function showError(message) {
   showNotification(message, 'error');
 }
-
-

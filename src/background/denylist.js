@@ -1,6 +1,7 @@
 // SecretRadar - Denylist (Background)
 
 import { debugLog } from './utils.js';
+import { matchesDenyPattern } from '../shared/denylist-utils.js';
 
 // Check if origin is in deny list
 export async function isOriginDenied(url) {
@@ -33,17 +34,4 @@ export async function isOriginDenied(url) {
   }
 }
 
-// Check if domain matches deny pattern (supports wildcards)
-export function matchesDenyPattern(domain, pattern) {
-  // Remove protocol if present in pattern
-  pattern = pattern.replace(/^https?:\/\//, '');
-
-  // Handle wildcard patterns
-  if (pattern.startsWith('*.')) {
-    const baseDomain = pattern.substring(2); // Remove '*.'
-    return domain === baseDomain || domain.endsWith('.' + baseDomain);
-  }
-
-  // Handle exact domain match
-  return domain === pattern;
-}
+export { matchesDenyPattern };

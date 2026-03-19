@@ -7,8 +7,6 @@ import { handleMessage, scanSourceMap } from './src/background/scanner.js';
 import { debugLog } from './src/background/utils.js';
 import { isOriginDenied } from './src/background/denylist.js';
 
-const VERSION = "1.0.0";
-
 // Clear old cache entries on startup
 const now = Date.now();
 for (const [key, timestamp] of processedUrls.entries()) {
@@ -20,13 +18,11 @@ for (const [key, timestamp] of processedUrls.entries()) {
 // Cleanup on extension unload
 chrome.runtime.onSuspend.addListener(() => {
   clearNotificationQueue();
-  console.log('[SecretRadar] Extension unloaded, cleanup completed');
 });
 
 // Reset notification tracking on extension startup
 chrome.runtime.onStartup.addListener(() => {
   notifiedOrigins.clear();
-  console.log('[SecretRadar] Extension started, notification tracking reset');
 });
 
 // Handle extension icon click to clear new findings for current tab
@@ -48,16 +44,8 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 // Message handler for content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // Reduce log noise for clean console
-  if (request.scriptUrl) {
-    console.log('[SecretRadar Debug] Script message received:', request.scriptUrl);
-  } else {
-    console.log('[SecretRadar Debug] Background received message:', request);
-  }
-
   // Handle popup opened - clear new findings and reset notification throttle
   if (request.action === 'popupOpened') {
-    console.log('[SecretRadar Debug] Popup opened - clearing new findings');
     newFindings.clear();
     notifiedOrigins.clear();
     sendResponse({ success: true, message: 'New findings cleared' });
@@ -66,14 +54,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Handle source map scan request
   if (request.action === 'scanSourceMap') {
-    console.log('[SecretRadar Debug] Source map scan requested:', request.sourceMapUrl);
-
     (async () => {
       try {
         await scanSourceMap(request.sourceMapUrl, request.parentUrl, request.parentOrigin);
         sendResponse({ success: true, message: 'Source map scanned' });
       } catch (error) {
-        console.log('[SecretRadar Debug] Source map scan error:', error);
+        await debugLog('Source map scan error:', error);
         sendResponse({ success: false, error: error.message });
       }
     })();
@@ -83,8 +69,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Handle manual scan request from popup
   if (request.action === 'manualScan') {
-    console.log('[SecretRadar Debug] Manual scan requested');
-
     (async () => {
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -119,7 +103,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           sendResponse({ success: false, error: 'reload_required' });
         }
       } catch (error) {
-        console.log('[SecretRadar Debug] Manual scan error:', error);
+        await debugLog('Manual scan error:', error);
         sendResponse({ success: false, error: error.message });
       }
     })();
@@ -129,7 +113,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Handle clear cache request from popup
   if (request.action === 'clearCache') {
-    console.log('[SecretRadar Debug] Clear cache requested');
 
     try {
       clearCache();
@@ -143,22 +126,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // Handle content script messages
   if (request.scriptUrl || request.pageBody) {
-    if (!request.scriptUrl) {
-      console.log('[SecretRadar Debug] Processing pageBody message');
-    }
-
     // Handle message asynchronously
     handleMessage(request, sender).then(result => {
       sendResponse(result);
     }).catch(error => {
-      console.log('[SecretRadar Debug] handleMessage failed with error:', error);
+      debugLog('handleMessage failed with error:', error);
       sendResponse({ success: false, error: error.message });
     });
 
     return true; // Keep message channel open for async response
   }
 
-  console.log('[SecretRadar Debug] Unknown message type');
   sendResponse({ success: false, error: 'Unknown message type' });
   return true;
 });

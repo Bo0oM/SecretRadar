@@ -73,7 +73,6 @@ export async function updateUI() {
     advancedButton.textContent = storage.showAdvancedSettings ? 'Hide Advanced' : 'Advanced';
   }
 
-  // (testSettingsFunctionality removed from updateUI — it's a debug utility, not production flow)
 }
 
 // Reset settings to defaults
@@ -124,58 +123,3 @@ export async function toggleAdvancedSettings() {
   }
 }
 
-// Test all settings functionality
-export async function testSettingsFunctionality() {
-  try {
-    await debugLog('Testing settings functionality...');
-
-    // Test storage access
-    const testData = { test: 'value', timestamp: Date.now() };
-    await chrome.storage.local.set(testData);
-    const retrieved = await chrome.storage.local.get(['test']);
-
-    if (retrieved.test !== testData.test) {
-      await debugLog('Storage test failed');
-      showNotification('Storage test failed', 'error');
-    } else {
-      await debugLog('Storage test passed');
-    }
-
-    // Clean up test data
-    await chrome.storage.local.remove(['test']);
-
-    // Test current tab access
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
-      await debugLog('No active tab found - this is normal for new windows');
-      return;
-    }
-
-    if (!tab.url || tab.url === 'about:blank' || tab.url === 'chrome://newtab/') {
-      await debugLog('Tab not fully loaded yet - this is normal');
-      return;
-    }
-
-    if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) {
-      await debugLog('Skipping tests for browser/system pages');
-      return;
-    }
-
-    await debugLog('Tab access test passed');
-
-    // Test scripting API (skip for restricted URLs)
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => 'test'
-      });
-      await debugLog('Scripting API test passed');
-    } catch (error) {
-      await debugLog('Scripting API test skipped - page not ready or restricted:', error.message);
-    }
-
-  } catch (error) {
-    await debugLog('Settings functionality test failed:', error);
-    showNotification('Settings test failed', 'error');
-  }
-}
