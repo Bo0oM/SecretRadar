@@ -2,7 +2,7 @@
 
 import { processedUrls, newFindings, CACHE_DURATION } from './src/background/state.js';
 import { cleanupOldFindings, clearCache, clearNewFindingsForOrigin } from './src/background/storage.js';
-import { clearNotificationQueue, notifiedOrigins, updateBadge, notificationOrigins } from './src/background/notifications.js';
+import { clearNotificationQueue, clearNotifiedOrigin, notifiedOrigins, updateBadge, notificationOrigins } from './src/background/notifications.js';
 import { handleMessage, scanSourceMap } from './src/background/scanner.js';
 import { debugLog } from './src/background/utils.js';
 import { isOriginDenied } from './src/background/denylist.js';
@@ -67,9 +67,17 @@ chrome.action.onClicked.addListener(async (tab) => {
 // Message handler for content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle popup opened - clear new findings and reset notification throttle
+  // User explicitly cleared findings — allow future notifications for that origin
+  if (request.action === 'findingsCleared') {
+    const origin = request.origin || null;
+    clearNotifiedOrigin(origin).catch(() => {});
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.action === 'popupOpened') {
     newFindings.clear();
-    notifiedOrigins.clear();
+    // Do NOT clear notifiedOrigins here — opening popup must not re-enable notification spam
     sendResponse({ success: true, message: 'New findings cleared' });
     return true;
   }

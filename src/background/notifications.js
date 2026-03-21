@@ -3,10 +3,31 @@
 import { debugLog } from './utils.js';
 
 export const notificationQueue = new Map(); // origin -> { count: number, timer: timeout }
-export const notifiedOrigins = new Set(); // Track origins that have been notified
+export const notifiedOrigins = new Set(); // Track origins that have been notified (session-persisted)
 export const notificationOrigins = new Map(); // notificationId -> origin (for click handling)
 export const NOTIFICATION_DEBOUNCE = 2000; // 2 seconds debounce for notifications
 export const MAX_NOTIFICATIONS_PER_ORIGIN = 5; // Maximum notifications per origin per session
+
+// Load notifiedOrigins from session storage — survives SW restarts within same browser session
+chrome.storage.session.get(['notifiedOrigins']).then(data => {
+  if (Array.isArray(data.notifiedOrigins)) {
+    for (const origin of data.notifiedOrigins) notifiedOrigins.add(origin);
+  }
+}).catch(() => {});
+
+async function persistNotifiedOrigins() {
+  await chrome.storage.session.set({ notifiedOrigins: [...notifiedOrigins] }).catch(() => {});
+}
+
+// Clear notification tracking for a specific origin (call when user explicitly clears findings)
+export async function clearNotifiedOrigin(origin) {
+  if (origin) {
+    notifiedOrigins.delete(origin);
+  } else {
+    notifiedOrigins.clear(); // clear all (browser restart / manual reset)
+  }
+  await persistNotifiedOrigins();
+}
 
 // Queue notification for grouping by origin
 export async function queueNotification(finding) {
@@ -38,8 +59,9 @@ export async function queueNotification(finding) {
     queueEntry.timer = setTimeout(async () => {
       await showGroupedNotification(origin, queueEntry.count);
       notificationQueue.delete(origin);
-      // Mark this origin as notified to prevent spam
+      // Mark this origin as notified — persist so SW restart doesn't reset dedup
       notifiedOrigins.add(origin);
+      await persistNotifiedOrigins();
     }, NOTIFICATION_DEBOUNCE);
 
     await debugLog(`Queued notification for ${origin}, count: ${queueEntry.count}`);

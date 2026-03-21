@@ -194,6 +194,9 @@ export async function clearCurrentTabFindings() {
       if (cleared) {
         await chrome.storage.local.set({ findings: storage.findings });
 
+        // Allow future notifications for this origin now that findings are gone
+        chrome.runtime.sendMessage({ action: 'findingsCleared', origin }).catch(() => {});
+
         // Update badge
         await chrome.action.setBadgeText({ text: '' });
 
@@ -215,6 +218,8 @@ export async function clearCurrentTabFindings() {
 export async function clearAllData() {
   try {
     await chrome.storage.local.remove(['findings']);
+    // Allow future notifications for all origins
+    chrome.runtime.sendMessage({ action: 'findingsCleared', origin: null }).catch(() => {});
     await chrome.action.setBadgeText({ text: '' });
     await loadCurrentTabFindings();
     showNotification('All findings cleared', 'success');

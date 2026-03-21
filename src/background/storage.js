@@ -123,12 +123,9 @@ export function clearCache() {
   processedUrls.clear();
 }
 
-// Function to clear new findings for specific origin
+// Function to clear new findings for specific origin (called on tab switch)
 export function clearNewFindingsForOrigin(origin) {
-  // newFindings is in-memory session state not used for display decisions —
-  // clear entirely on tab switch (harmless over-clear)
+  // newFindings is in-memory session state — clear on tab switch (harmless)
   newFindings.clear();
-
-  // Reset notification throttle so future findings on this origin notify again
-  notifiedOrigins.delete(origin);
+  // Do NOT touch notifiedOrigins here — tab switching must not re-enable notification spam
 }
