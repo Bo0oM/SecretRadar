@@ -324,6 +324,21 @@ export const SECRET_PATTERNS = {
     confidence: "medium",
     context: ["ci", "package", "registry", "user", "gitlab"]
   },
+  "CI Job Token": {
+    pattern: /["']?CI_JOB_TOKEN["']?\s*[:=]\s*["']([^"']{8,})["']/g,
+    confidence: "high",
+    context: ["ci", "job", "token", "gitlab"]
+  },
+  "MinIO Access Key": {
+    pattern: /["']?MINIO_ACCESS_KEY["']?\s*[:=]\s*["']([^"']{8,})["']/g,
+    confidence: "high",
+    context: ["minio", "storage", "access", "key"]
+  },
+  "MinIO Secret Key": {
+    pattern: /["']?MINIO_SECRET_KEY["']?\s*[:=]\s*["']([^"']{8,})["']/g,
+    confidence: "high",
+    context: ["minio", "storage", "secret", "key"]
+  },
 
   // Generic patterns for any service secrets
   "Generic Password": {
@@ -377,6 +392,21 @@ export const SECRET_PATTERNS = {
     pattern: /["']?[a-zA-Z_]+_PASSWORD["']?\s*[:=]\s*["']([^"']{8,})["']/g,
     confidence: "high",
     context: ["password", "secret", "credential"]
+  },
+  // Variables ending in _SECRET_KEY or _ACCESS_KEY — broad catch for unknown service formats
+  "Generic Secret Key Variable": {
+    pattern: /["']?[a-zA-Z_]+_(?:SECRET|ACCESS)_KEY["']?\s*[:=]\s*["']([^"']{8,})["']/g,
+    confidence: "medium",
+    context: ["secret", "access", "key", "credential"],
+    validation: (match, context) => {
+      const m = match.match(/["']([^"']{8,})["']\s*$/);
+      const value = m ? m[1] : '';
+      // Skip obvious placeholders
+      if (/^(your|example|test|demo|placeholder|changeme|xxx+|[a-z]+123)$/i.test(value)) return false;
+      // Skip values that look like variable references
+      if (/^\$\{?[A-Z_]+\}?$/.test(value)) return false;
+      return true;
+    }
   },
   "PHP API Key Variable": {
     pattern: /\$api_key\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/gi,
