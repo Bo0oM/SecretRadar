@@ -2,7 +2,7 @@
 
 import { processedUrls, newFindings, CACHE_DURATION } from './src/background/state.js';
 import { cleanupOldFindings, clearCache, clearNewFindingsForOrigin } from './src/background/storage.js';
-import { clearNotificationQueue, notifiedOrigins, updateBadge } from './src/background/notifications.js';
+import { clearNotificationQueue, notifiedOrigins, updateBadge, notificationOrigins } from './src/background/notifications.js';
 import { handleMessage, scanSourceMap } from './src/background/scanner.js';
 import { debugLog } from './src/background/utils.js';
 import { isOriginDenied } from './src/background/denylist.js';
@@ -23,6 +23,28 @@ chrome.runtime.onSuspend.addListener(() => {
 // Reset notification tracking on extension startup
 chrome.runtime.onStartup.addListener(() => {
   notifiedOrigins.clear();
+});
+
+// Handle notification click — focus the tab where secrets were found
+chrome.notifications.onClicked.addListener(async (notificationId) => {
+  try {
+    chrome.notifications.clear(notificationId);
+    const origin = notificationOrigins.get(notificationId);
+    notificationOrigins.delete(notificationId);
+    if (!origin) return;
+
+    // Find a tab with this origin and activate it
+    const tabs = await chrome.tabs.query({});
+    const target = tabs.find(t => {
+      try { return new URL(t.url).origin === origin; } catch { return false; }
+    });
+    if (target) {
+      await chrome.tabs.update(target.id, { active: true });
+      await chrome.windows.update(target.windowId, { focused: true });
+    }
+  } catch (error) {
+    await debugLog('Error handling notification click:', error);
+  }
 });
 
 // Handle extension icon click to clear new findings for current tab

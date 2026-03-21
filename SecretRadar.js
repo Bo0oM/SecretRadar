@@ -3,15 +3,16 @@
 (function() {
   'use strict';
 
-  // Debug logging helper function
-  async function debugLog(message, ...args) {
-    try {
-      const currentSettings = await chrome.storage.local.get(['debugMode']);
-      if (currentSettings.debugMode) {
-        console.log('[SecretRadar Debug]', message, ...args);
-      }
-      } catch (error) {
-  }
+  // Debug logging — cached to avoid storage I/O on every call
+  let _debugMode = false;
+  chrome.storage.local.get(['debugMode']).then(s => { _debugMode = s.debugMode || false; }).catch(() => {});
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.debugMode !== undefined) {
+      _debugMode = changes.debugMode.newValue || false;
+    }
+  });
+  function debugLog(message, ...args) {
+    if (_debugMode) console.log('[SecretRadar Debug]', message, ...args);
   }
 
   // Performance optimization: Debounce function
@@ -269,9 +270,7 @@
       }
 
     } catch (error) {
-      if (settings.debugMode) {
-        await debugLog('Error in scanSourceMaps:', error);
-      }
+      debugLog('Error in scanSourceMaps:', error);
     }
   }
 

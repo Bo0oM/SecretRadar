@@ -57,7 +57,7 @@ export async function detectSecrets(content, source, parentUrl, parentOrigin) {
           let displayValue = matchedValue;
 
           // Special handling for JWT tokens - decode and show payload info
-          if (secretType === "JWT Token" && matchedValue.length > 100) {
+          if (secretType.startsWith("JWT Token") && matchedValue.length > 100) {
             const decoded = decodeJWT(matchedValue);
             if (decoded && decoded.payload) {
               const payloadInfo = [];
@@ -277,7 +277,7 @@ export function calculateConfidence(config, context, match, secretType = '') {
   }
 
   // Special handling for JWT tokens with enhanced time analysis
-  if (secretType === 'JWT Token') {
+  if (secretType.startsWith('JWT Token')) {
     confidence = 0.4; // Higher base for JWT
 
     // Check if it's a real JWT (has proper structure)

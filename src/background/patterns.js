@@ -187,6 +187,27 @@ export const SECRET_PATTERNS = {
   },
 
   // Database credentials
+  // JSON "password" field inside a connection/config object (e.g. leaked error responses, debug logs)
+  // Generic Password pattern filters this out because matchedValue contains the key word "password"
+  "JSON Connection Password": {
+    pattern: /"password"\s*:\s*"([^"]{6,120})"/g,
+    confidence: "high",
+    context: ["host", "port", "user", "schema", "database", "db", "connection", "oracle", "mysql", "postgres", "mongo", "redis", "service_name", "service", "dsn"],
+    prefilter: '"password"',
+    validation: (match, context) => {
+      const m = match.match(/"password"\s*:\s*"([^"]+)"/i);
+      const value = m ? m[1] : '';
+      if (!value || value.length < 6) return false;
+      if (/\s/.test(value)) return false; // passwords don't have spaces
+      if (/^(password|pass|pwd|secret|key|token|reset|login|enter|type|your|here)$/i.test(value)) return false;
+      if (/(.)\1{4,}/.test(value)) return false; // repeating chars
+      // Only flag when connection context is present (avoids login form FPs)
+      const ctx = context.surroundingText.toLowerCase();
+      const connFields = ['host', 'port', 'user', 'schema', 'database', 'service', 'connection',
+        'oracle', 'mysql', 'postgres', 'mongo', 'redis', 'dsn', 'pooling', 'driver', 'provider'];
+      return connFields.some(kw => ctx.includes(kw));
+    }
+  },
   "Database Password": {
     pattern: /["']?[dD][bB][_][pP][aA][sS][sS][wW][oO][rR][dD]["']?\s*[:=]\s*["']([^"']{8,})["']/g,
     confidence: "high",

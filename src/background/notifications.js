@@ -4,6 +4,7 @@ import { debugLog } from './utils.js';
 
 export const notificationQueue = new Map(); // origin -> { count: number, timer: timeout }
 export const notifiedOrigins = new Set(); // Track origins that have been notified
+export const notificationOrigins = new Map(); // notificationId -> origin (for click handling)
 export const NOTIFICATION_DEBOUNCE = 2000; // 2 seconds debounce for notifications
 export const MAX_NOTIFICATIONS_PER_ORIGIN = 5; // Maximum notifications per origin per session
 
@@ -62,6 +63,7 @@ export async function showGroupedNotification(origin, count) {
         title: 'SecretRadar Security Alert',
         message: `${count} high-confidence secrets detected on ${origin}`
       });
+      notificationOrigins.set(notificationId, origin);
       await debugLog('Grouped notification created with ID:', notificationId);
     } else {
       await debugLog('Notifications are disabled in settings');

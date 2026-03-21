@@ -209,6 +209,18 @@ export async function handleMessage(request, sender) {
           return { success: true, reason: 'already_processed' };
         }
 
+        // Skip URLs with embedded credentials — fetch() throws a TypeError for these
+        // (e.g. Sentry DSNs: https://key@sentry.io/project)
+        try {
+          const parsedUrl = new URL(request.scriptUrl);
+          if (parsedUrl.username || parsedUrl.password) {
+            await debugLog(`Skipping credential URL: ${request.scriptUrl}`);
+            return { success: false, reason: 'credential_url' };
+          }
+        } catch (_) {
+          return { success: false, reason: 'invalid_url' };
+        }
+
         const response = await fetch(request.scriptUrl, {
           credentials: 'include',
           cache: 'force-cache' // Use cache for performance
@@ -240,8 +252,9 @@ export async function handleMessage(request, sender) {
         // Enhanced error handling for CSP and network errors
         if (fetchError.message.includes('Content Security Policy') ||
             fetchError.message.includes('CSP') ||
-            fetchError.message.includes('Failed to fetch')) {
-          await debugLog(`CSP/Network error for ${request.scriptUrl}:`, fetchError.message);
+            fetchError.message.includes('Failed to fetch') ||
+            fetchError.message.includes('credentials')) {
+          await debugLog(`Skipping ${request.scriptUrl}: ${fetchError.message}`);
           return { success: false, reason: 'csp_error', error: fetchError.message };
         }
 

@@ -56,14 +56,8 @@ export async function storeFindings(findings, origin) {
 
     await chrome.storage.local.set({ findings: existingFindings });
 
-    // Update badge after storing findings only if there are findings
-    if (findings.length > 0 && findings[0].parentOrigin) {
-      await updateBadge(findings[0].parentOrigin);
-    } else {
-      // Clear badge if no findings for this origin
-      await chrome.action.setBadgeText({ text: '' });
-      await chrome.action.setBadgeBackgroundColor({ color: '#6c757d' });
-    }
+    // Update badge using origin parameter (always available)
+    await updateBadge(origin);
   } catch (error) {
     console.error('Error storing findings:', error);
   }
