@@ -37,7 +37,7 @@ export async function detectSecrets(content, source, parentUrl, parentOrigin) {
         }
 
         // Context analysis — uses match.index directly, no indexOf scan
-        const context = analyzeContext(content, matchedValue, matchIndex);
+        const context = analyzeContext(content, matchedValue, matchIndex, source);
 
         // Run validation function if it exists (normalise sync/async via Promise.resolve)
         if (config.validation && !(await Promise.resolve(config.validation(matchedValue, context)))) {
@@ -122,11 +122,12 @@ export async function detectSecrets(content, source, parentUrl, parentOrigin) {
 
 // Analyze context around the match to reduce false positives
 // matchIndex is match.index from matchAll — free, no indexOf scan needed
-export function analyzeContext(content, match, matchIndex) {
+export function analyzeContext(content, match, matchIndex, source = '') {
   const context = {
     surroundingText: '',
     keywords: [],
-    confidence: 0
+    confidence: 0,
+    source  // URL/origin of the scanned content — available to validation functions
   };
 
   try {

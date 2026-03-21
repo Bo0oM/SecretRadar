@@ -163,12 +163,35 @@ export const SECRET_PATTERNS = {
     confidence: "high",
     context: ["google", "api", "key", "maps", "analytics"]
   },
-  // Standalone: AIzaSy prefix is Google-specific
+  // Standalone: AIzaSy prefix is Google-specific — medium because third-party sites often
+  // embed their own Maps/Analytics keys intentionally; severity depends on API restrictions
   "Google API Key (standalone)": {
     pattern: /AIzaSy[0-9A-Za-z\-_]{33}/g,
-    confidence: "high",
+    confidence: "medium",
     context: ["google", "api", "key"],
-    prefilter: "AIzaSy"
+    prefilter: "AIzaSy",
+    validation: (match, context) => {
+      const ctx = context.surroundingText;
+      const src = context.source || '';
+
+      // YouTube/Google own pages — ALL AIzaSy keys are their own infrastructure keys
+      if (src.includes('youtube.com') || src.includes('youtu.be') ||
+          src.includes('google.com') || src.includes('googleapis.com')) return false;
+
+      // Skip by context markers (catches embedded YouTube config in other pages)
+      const googleInternalMarkers = [
+        'INNERTUBE_API_KEY', 'INNERTUBE_', 'ytcfg', 'ytInitialData',
+        'LIVE_CHAT_BASE_TANGO_CONFIG', 'VOZ_API_KEY', 'LINK_API_KEY',
+        'obfuscatedData_', 'WEB_PLAYER_CONTEXT_CONFIGS',
+        // Google Analytics — always public by design
+        'analyticsKey', 'analytics_key', 'ga_key', 'GA_MEASUREMENT_ID',
+        'googleAnalytics', 'google_analytics'
+      ];
+      if (googleInternalMarkers.some(marker => ctx.includes(marker))) return false;
+      // gapi_key / gapi_client = app config key, referrer-restricted
+      if (ctx.includes('gapi_key') || ctx.includes('gapi_client')) return false;
+      return true;
+    }
   },
   "Giphy API Key Variable": {
     pattern: /["']?[gG][iI][pP][hH][yY][_][aA][pP][iI][_][kK][eE][yY]["']?\s*[:=]\s*["']([a-zA-Z0-9]{32})["']/g,
