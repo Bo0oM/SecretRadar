@@ -118,21 +118,61 @@ export function displayFindings(findings, origin, isDenied = false) {
          data-source="${escapeHtml(finding.source)}">
       <div class="finding-header">
         <span class="finding-type">${escapeHtml(finding.type)}</span>
-        <span class="confidence-badge">${Math.round(finding.confidence * 100)}%</span>
+        <div class="finding-header-right">
+          <span class="confidence-badge">${Math.round(finding.confidence * 100)}%</span>
+          <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
+        </div>
       </div>
       <div class="finding-details">
+        <div class="finding-match">
+          <code class="copyable-secret" data-value="${escapeHtml(finding.match)}" title="Click to copy">${escapeHtml(finding.displayValue || finding.match.substring(0, 60))}${!finding.displayValue && finding.match.length > 60 ? '...' : ''}</code>
+        </div>
         <div class="finding-source">Source: <a href="#" class="source-link" data-url="${escapeHtml(finding.source)}">${escapeHtml(finding.source)}</a></div>
-        <div class="finding-match">Match: <code>${escapeHtml(finding.displayValue || finding.match.substring(0, 50))}${!finding.displayValue && finding.match.length > 50 ? '...' : ''}</code></div>
-        ${finding.context.surroundingText ? `<div class="finding-context">Context: ${escapeHtml(finding.context.surroundingText)}</div>` : ''}
-        <div class="finding-time">Found: ${new Date(finding.timestamp).toLocaleString()}</div>
+        ${finding.context.surroundingText ? `<div class="finding-context">${escapeHtml(finding.context.surroundingText)}</div>` : ''}
+        <div class="finding-time">${new Date(finding.timestamp).toLocaleString()}</div>
       </div>
-
     </div>
   `).join('');
 
   findingsContainer.innerHTML = filterHTML + findingsHTML;
 
   setupFilters();
+  setupFindingInteractions(findingsContainer);
+}
+
+function setupFindingInteractions(container) {
+  // Collapse/expand on header click
+  container.querySelectorAll('.finding-header').forEach(header => {
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('.source-link')) return;
+      const item = header.closest('.finding-item');
+      item.classList.toggle('expanded');
+    });
+  });
+
+  // Copy secret on code click
+  container.querySelectorAll('.copyable-secret').forEach(code => {
+    code.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const value = code.dataset.value;
+      try {
+        await navigator.clipboard.writeText(value);
+        code.classList.add('copied');
+        setTimeout(() => code.classList.remove('copied'), 1500);
+      } catch {
+        // fallback for restricted contexts
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        code.classList.add('copied');
+        setTimeout(() => code.classList.remove('copied'), 1500);
+      }
+    });
+  });
 }
 
 // Clear findings for current tab

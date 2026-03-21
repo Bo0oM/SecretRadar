@@ -231,66 +231,131 @@ body {
 .finding-item {
   background: #f8f9fa;
   border: 1px solid #e9ecef;
+  border-left: 4px solid #e9ecef;
   border-radius: 8px;
-  padding: 12px;
+  padding: 0;
   margin-bottom: 8px;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
 }
 
 .finding-item:hover {
-  border-color: #007bff;
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .finding-item.high-confidence {
-  border-left: 4px solid #dc3545;
+  border-left-color: #dc3545;
 }
 
 .finding-item.medium-confidence {
-  border-left: 4px solid #ffc107;
+  border-left-color: #fd7e14;
 }
 
 .finding-item.low-confidence {
-  border-left: 4px solid #28a745;
+  border-left-color: #6c757d;
 }
 
+/* Collapsed by default — header always visible */
 .finding-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  gap: 8px;
+}
+
+.finding-header:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.finding-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.chevron {
+  width: 14px;
+  height: 14px;
+  color: #adb5bd;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.finding-item.expanded .chevron {
+  transform: rotate(180deg);
+}
+
+.finding-details {
+  display: none;
+  padding: 0 12px 10px;
+  border-top: 1px solid #e9ecef;
+}
+
+.finding-item.expanded .finding-details {
+  display: block;
 }
 
 .finding-type {
   font-weight: 600;
-  color: #495057;
+  font-size: 13px;
+  color: #343a40;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .confidence-badge {
-  background: #007bff;
+  background: #6c757d;
   color: white;
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  min-width: 60px;
-  text-align: center;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
-.finding-details {
-  margin-bottom: 8px;
+.high-confidence .confidence-badge {
+  background: #dc3545;
+}
+
+.medium-confidence .confidence-badge {
+  background: #fd7e14;
+}
+
+.low-confidence .confidence-badge {
+  background: #6c757d;
 }
 
 .finding-source,
 .finding-match,
-.finding-context {
+.finding-context,
+.finding-time {
   font-size: 12px;
   color: #6c757d;
-  margin-bottom: 4px;
-  word-wrap: break-word;
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.finding-time {
+  font-size: 11px;
+  color: #adb5bd;
+  margin-top: 4px;
+}
+
+.finding-context {
+  font-style: italic;
+  color: #868e96;
+  background: #f1f3f5;
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-top: 6px;
 }
 
 /* Source link styles */
@@ -298,23 +363,46 @@ body {
   color: #007bff;
   text-decoration: none;
   cursor: pointer;
-  transition: color 0.2s ease;
+  transition: color 0.15s;
+  word-break: break-all;
 }
 
 .source-link:hover {
-  color: #0056b3;
   text-decoration: underline;
 }
 
-.source-link:active {
-  color: #004085;
+/* Copyable secret */
+.copyable-secret {
+  display: inline-block;
+  background: #e9ecef;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  word-break: break-all;
 }
 
-.finding-match code {
-  background: #e9ecef;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+.copyable-secret:hover {
+  background: #d0e9ff;
+  color: #0056b3;
+}
+
+.copyable-secret.copied {
+  background: #d4edda;
+  color: #155724;
+}
+
+.copyable-secret::after {
+  content: ' ⎘';
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+.copyable-secret.copied::after {
+  content: ' ✓';
+  opacity: 1;
 }
 
 
@@ -793,6 +881,17 @@ body {
 .btn-sm {
   padding: 4px 8px;
   font-size: 12px;
+}
+
+.btn-warning {
+  background: #fd7e14;
+  color: white;
+  border: 1px solid #fd7e14;
+}
+
+.btn-warning:hover {
+  background: #e8690b;
+  border-color: #e8690b;
 }
 
 .btn-danger {
