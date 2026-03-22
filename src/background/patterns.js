@@ -81,12 +81,7 @@ export const SECRET_PATTERNS = {
     confidence: "high",
     context: ["stripe", "payment", "api"]
   },
-  // Stripe publishable key — public by design but signals Stripe usage; medium severity
-  "Stripe Publishable Key": {
-    pattern: /pk_(live|test)_[a-zA-Z0-9]{24,}/g,
-    confidence: "medium",
-    context: ["stripe", "publishable", "public"]
-  },
+
   "JWT Token": {
     pattern: /[\w.-]{0,50}?(?:jwt|JWT)(?:[ \t\w.-]{0,20})[\s'"`]{0,3}(?:=|>|:{1,3}=|\|\||:|=>|\?=|,)[`'"\s=]{0,5}(eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*)(?:[`'"\s;]|\\[nr]|$)/gi,
     confidence: "low",

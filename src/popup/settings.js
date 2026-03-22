@@ -8,7 +8,6 @@ import { loadCurrentTabFindings } from './findings.js';
 export async function initializeSettings() {
   const defaults = {
     enableNotifications: true,
-    confidenceThreshold: 0.3,
     autoScan: true,
     scanExternalScripts: true,
     scanSourceMaps: true,
@@ -37,7 +36,7 @@ export async function initializeSettings() {
 export async function updateUI() {
   const storage = await chrome.storage.local.get([
     'enableNotifications', 'autoScan', 'scanExternalScripts',
-    'scanSourceMaps', 'scanSensitiveFiles', 'confidenceThreshold', 'dataRetentionDays',
+    'scanSourceMaps', 'scanSensitiveFiles', 'dataRetentionDays',
     'showAdvancedSettings', 'debugMode', 'verboseScanning'
   ]);
 
@@ -48,14 +47,6 @@ export async function updateUI() {
       element.checked = value;
     }
   });
-
-  // Update confidence slider
-  const confidenceSlider = document.getElementById('confidenceThreshold');
-  const confidenceValue = document.getElementById('confidenceValue');
-  if (confidenceSlider && confidenceValue) {
-    confidenceSlider.value = storage.confidenceThreshold || 0.3;
-    confidenceValue.textContent = `${Math.round((storage.confidenceThreshold || 0.3) * 100)}%`;
-  }
 
   // Update retention slider
   const retentionSlider = document.getElementById('dataRetentionDays');
@@ -80,7 +71,6 @@ export async function resetSettings() {
   try {
     const defaults = {
       enableNotifications: true,
-      confidenceThreshold: 0.3,
       autoScan: true,
       scanExternalScripts: true,
       scanSourceMaps: true,

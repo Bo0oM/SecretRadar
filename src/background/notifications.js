@@ -103,16 +103,15 @@ export async function updateBadge(origin) {
   try {
     await debugLog(`Updating badge for origin: ${origin}`);
 
-    const storage = await chrome.storage.local.get(['findings', 'confidenceThreshold']);
-    const threshold = storage.confidenceThreshold ?? 0.3;
+    const storage = await chrome.storage.local.get(['findings']);
 
-    // Count findings for the specific origin above confidence threshold
+    // Count all findings for the specific origin (hard floor 0.3 is enforced at detection time)
     let originCount = 0;
 
     if (storage.findings) {
       for (const findings of Object.values(storage.findings)) {
         for (const finding of findings) {
-          if (finding.parentOrigin === origin && finding.confidence >= threshold) {
+          if (finding.parentOrigin === origin) {
             originCount++;
           }
         }
@@ -121,7 +120,7 @@ export async function updateBadge(origin) {
 
     const badgeText = originCount > 0 ? originCount.toString() : '';
 
-    await debugLog(`Badge text: ${badgeText} (origin: ${originCount}, threshold: ${threshold})`);
+    await debugLog(`Badge text: ${badgeText} (origin: ${originCount})`);
 
     await chrome.action.setBadgeText({ text: badgeText });
     await chrome.action.setBadgeBackgroundColor({

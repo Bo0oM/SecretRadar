@@ -477,46 +477,6 @@ body {
   color: #495057;
 }
 
-/* Confidence Setting */
-.confidence-setting {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e9ecef;
-}
-
-.confidence-label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #495057;
-}
-
-.confidence-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: #e9ecef;
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.confidence-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #007bff;
-  cursor: pointer;
-}
-
-.confidence-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #6c757d;
-}
-
 /* Actions Section */
 .actions-section {
   margin-bottom: 16px;

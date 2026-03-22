@@ -60,6 +60,13 @@ export function getConfidenceClass(confidence) {
   return 'low-confidence';
 }
 
+// Get human-readable label based on confidence level
+export function getConfidenceLabel(confidence) {
+  if (confidence >= 0.8) return 'High';
+  if (confidence >= 0.5) return 'Medium';
+  return 'Low';
+}
+
 // Validate domain format
 export function isValidDomain(domain) {
   // Remove protocol if present

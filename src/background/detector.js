@@ -190,175 +190,71 @@ export function analyzeContext(content, match, matchIndex, source = '') {
 
 // Calculate confidence score based on pattern and context
 export function calculateConfidence(config, context, match, secretType = '') {
-  let confidence = 0.15; // Slightly higher base confidence
+  // Base is determined by pattern confidence — this is the primary signal
+  let confidence;
+  switch (config.confidence) {
+    case 'high':   confidence = 0.75; break;
+    case 'medium': confidence = 0.55; break;
+    case 'low':    confidence = 0.35; break;
+    default:       confidence = 0.35;
+  }
 
-  // Positive keywords (increase confidence)
-  const positiveKeywords = [
-    'key', 'token', 'secret', 'password', 'auth', 'api', 'credential',
-    'access', 'private', 'secure', 'encrypt', 'signature', 'hash',
-    'aws', 'amazon', 'google', 'github', 'stripe', 'slack', 'firebase',
-    'database', 'connection', 'endpoint', 'webhook', 'oauth', 'jwt'
-  ];
+  const contextText = context.surroundingText.toLowerCase();
 
-  // Negative keywords (decrease confidence)
+  // Context keyword bonus: pattern's own context[] keywords found nearby
+  if (config.context.some(ctx => contextText.includes(ctx))) {
+    confidence += 0.1;
+  }
+
+  // Negative keywords penalty — clear false-positive signals
   const negativeKeywords = [
     'example', 'test', 'demo', 'fake', 'mock', 'dummy', 'placeholder',
-    'documentation', 'tutorial', 'sample', 'template', 'default',
-    'not_a_real', 'also_not_real', 'fake_token', 'test_key',
-    'example_secret', 'demo_password', 'sample_api', 'template_key',
-    'placeholder_token', 'dummy_secret', 'mock_key', 'fake_credential'
+    'documentation', 'tutorial', 'sample', 'template'
   ];
-
-  // Check positive keywords
-  const contextText = context.surroundingText.toLowerCase();
-  const positiveMatches = positiveKeywords.filter(keyword =>
-    contextText.includes(keyword)
-  );
-
-  if (positiveMatches.length > 0) {
-    confidence += Math.min(positiveMatches.length * 0.1, 0.3); // Maximum +0.3
+  const negativeCount = negativeKeywords.filter(kw => contextText.includes(kw)).length;
+  if (negativeCount > 0) {
+    confidence -= Math.min(negativeCount * 0.15, 0.3);
   }
 
-  // Check negative keywords
-  const negativeMatches = negativeKeywords.filter(keyword =>
-    contextText.includes(keyword)
-  );
-
-  if (negativeMatches.length > 0) {
-    confidence -= Math.min(negativeMatches.length * 0.15, 0.4); // Maximum -0.4
+  // Value itself contains placeholder signals
+  const lowerMatch = match.toLowerCase();
+  if (lowerMatch.includes('example') || lowerMatch.includes('test') || lowerMatch.includes('demo')) {
+    confidence -= 0.15;
   }
 
-  // Pattern confidence (balanced)
-  switch (config.confidence) {
-    case 'high': confidence += 0.3; break;
-    case 'medium': confidence += 0.2; break;
-    case 'low': confidence += 0.1; break;
-  }
-
-  // Context confidence (balanced)
-  if (config.context.some(ctx =>
-    context.surroundingText.toLowerCase().includes(ctx)
-  )) {
-    confidence += 0.15; // Balanced context weight
-  }
-
-  // Keyword confidence (balanced)
-  if (context.keywords.length > 0) {
-    confidence += Math.min(context.keywords.length * 0.08, 0.2); // Balanced keyword weight
-  }
-
-  // Length and format confidence
-  if (match.length > 20 && /[a-zA-Z0-9]/.test(match)) {
-    confidence += 0.08;
-  }
-
-  // AWS bonus
-  if (config.context.includes('aws') || config.context.includes('amazon')) {
-    const awsContextKeywords = ['aws', 'amazon', 'secret', 'key', 'access', 'credential', 'configure', 'cli'];
-    const awsContextCount = awsContextKeywords.filter(keyword =>
-      context.surroundingText.toLowerCase().includes(keyword)
-    ).length;
-
-    if (awsContextCount >= 2) {
-      confidence += 0.15; // Balanced AWS bonus
-    }
-  }
-
-  // Enhanced confidence for generic patterns with entropy analysis
+  // Generic pattern entropy check — high-entropy values are more likely real secrets
   if (secretType && secretType.includes('Generic')) {
-    // Calculate entropy for the matched value
     const entropy = calculateShannonEntropy(match);
-
-    // If entropy is high, increase confidence
     if (entropy >= 4.0) {
-      confidence += (entropy - 4.0) * 0.15; // Bonus for high entropy
+      confidence += (entropy - 4.0) * 0.1;
     } else if (entropy < 3.0) {
-      confidence -= 0.2; // Penalty for low entropy
+      confidence -= 0.2;
     }
   }
 
-  // Special handling for JWT tokens with enhanced time analysis
+  // JWT: override base, adjust by token properties
   if (secretType.startsWith('JWT Token')) {
-    confidence = 0.4; // Higher base for JWT
-
-    // Check if it's a real JWT (has proper structure)
+    confidence = 0.4;
     const decoded = decodeJWT(match);
     if (decoded && decoded.payload) {
-      // Analyze token lifetime
       if (decoded.analysis) {
-        // If token is expired, reduce confidence
-        if (decoded.analysis.isExpired) {
-          confidence -= 0.2;
-        }
-
-        // If token is long-lived, increase confidence
-        if (decoded.analysis.isLongLived) {
-          confidence += 0.15;
-        }
-
-        // If token is short-lived (less than 1 hour), reduce confidence
-        if (decoded.analysis.expiresIn !== null && decoded.analysis.expiresIn < 3600) {
-          confidence -= 0.1;
-        }
+        if (decoded.analysis.isExpired)   confidence -= 0.2;
+        if (decoded.analysis.isLongLived) confidence += 0.15;
+        if (decoded.analysis.expiresIn !== null && decoded.analysis.expiresIn < 3600) confidence -= 0.1;
       }
-
-      // Check if it's a common auth token
-      if (decoded.payload.iss && (decoded.payload.iss.includes('auth') || decoded.payload.iss.includes('login'))) {
-        confidence -= 0.1;
-      }
-
-      // Check if it's a test/example token
-      if (decoded.payload.sub === '1234567890' || decoded.payload.sub === 'test' || decoded.payload.sub === 'example') {
-        confidence -= 0.15;
-      }
+      if (decoded.payload.sub === '1234567890' || decoded.payload.sub === 'test') confidence -= 0.15;
     } else {
-      confidence -= 0.15; // Not a proper JWT structure
-    }
-
-    // Additional penalty for auth context
-    const authKeywords = ['authorization', 'bearer', 'auth', 'login', 'session', 'cookie', 'token'];
-    const hasAuthContext = authKeywords.some(keyword =>
-      context.surroundingText.toLowerCase().includes(keyword)
-    );
-
-    if (hasAuthContext) {
       confidence -= 0.15;
     }
   }
 
-  // Special handling for Generic Password
+  // Generic Password: penalise UI text patterns
   if (secretType === 'Generic Password') {
-    const passwordLikePatterns = [
-      /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{8,}$/,
-      /^[A-Za-z0-9]{8,}$/,
-      /^[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{8,}$/
-    ];
-
-    const isPasswordLike = passwordLikePatterns.some(pattern => pattern.test(match));
-    if (!isPasswordLike) {
-      confidence -= 0.2; // Reduced penalty
+    if (/\s/.test(match) || /^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/.test(match) ||
+        /^(reset|login|sign|continue|verify|password|pass|pwd)$/i.test(match) ||
+        /[а-яё]/i.test(match)) {
+      confidence -= 0.3;
     }
-
-    const uiTextPatterns = [
-      /\s/,
-      /^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/,
-      /^(reset|login|sign|continue|verify|password|pass|pwd)$/i,
-      /[а-яё]/i
-    ];
-
-    const isUIText = uiTextPatterns.some(pattern => pattern.test(match));
-    if (isUIText) {
-      confidence -= 0.3; // Reduced penalty
-    }
-  }
-
-  // Additional penalties for common false positives
-  if (match.includes('example') || match.includes('test') || match.includes('demo')) {
-    confidence -= 0.15;
-  }
-
-  if (match.includes('123456') || match.includes('password') || match.includes('secret')) {
-    confidence -= 0.08;
   }
 
   return Math.min(Math.max(confidence, 0.1), 1.0);

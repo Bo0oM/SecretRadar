@@ -1,6 +1,6 @@
 // SecretRadar - Popup Findings
 
-import { debugLog, showNotification, displayStatus, escapeHtml, getConfidenceClass, setupFilters } from './ui.js';
+import { debugLog, showNotification, displayStatus, escapeHtml, getConfidenceClass, getConfidenceLabel, setupFilters } from './ui.js';
 import { isOriginDenied } from './denylist.js';
 
 // Load findings for current tab
@@ -39,23 +39,21 @@ export async function loadCurrentTabFindings() {
     const isDenied = await isOriginDenied(tab.url);
     await debugLog(`Origin ${origin} is denied: ${isDenied}`);
 
-    const storage = await chrome.storage.local.get(['findings', 'confidenceThreshold']);
-    const threshold = storage.confidenceThreshold ?? 0.3;
+    const storage = await chrome.storage.local.get(['findings']);
 
     // Collect all findings whose parentOrigin matches current tab origin
-    // Filter by confidence threshold here (UI-side) — storage always has all findings
     let findings = [];
     if (storage.findings) {
       for (const keyFindings of Object.values(storage.findings)) {
         for (const finding of keyFindings) {
-          if (finding.parentOrigin === origin && finding.confidence >= threshold) {
+          if (finding.parentOrigin === origin) {
             findings.push(finding);
           }
         }
       }
     }
 
-    await debugLog(`Found ${findings.length} findings for ${origin} (threshold: ${threshold})`);
+    await debugLog(`Found ${findings.length} findings for ${origin}`);
 
     await displayFindings(findings, origin, isDenied);
   } catch (error) {
@@ -119,7 +117,7 @@ export function displayFindings(findings, origin, isDenied = false) {
       <div class="finding-header">
         <span class="finding-type">${escapeHtml(finding.type)}</span>
         <div class="finding-header-right">
-          <span class="confidence-badge">${Math.round(finding.confidence * 100)}%</span>
+          <span class="confidence-badge">${getConfidenceLabel(finding.confidence)}</span>
           <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
         </div>
       </div>
