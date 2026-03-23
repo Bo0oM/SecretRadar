@@ -145,12 +145,12 @@ export const SECRET_PATTERNS = {
   },
   "Mailgun API Key": {
     pattern: /key-[0-9a-zA-Z]{32}/g,
-    confidence: "high",
+    confidence: "medium", // key-XXX format is too generic without explicit context validation
     context: ["mailgun", "email", "api"]
   },
   "Twilio API Key": {
     pattern: /SK[0-9a-fA-F]{32}/g,
-    confidence: "high",
+    confidence: "medium", // SK prefix is not unique to Twilio
     context: ["twilio", "sms", "api"]
   },
   "Google API Key": {
@@ -296,7 +296,7 @@ export const SECRET_PATTERNS = {
   },
   "CI Registry Host": {
     pattern: /["']?CI_TEMPLATE_REGISTRY_HOST["']?\s*[:=]\s*["']([^"']{3,})["']/g,
-    confidence: "medium",
+    confidence: "low", // hostname only, not a credential
     context: ["ci", "registry", "host", "gitlab", "docker"]
   },
   "CI Dependency Proxy Password": {
@@ -306,7 +306,7 @@ export const SECRET_PATTERNS = {
   },
   "CI Dependency Proxy Server": {
     pattern: /["']?CI_DEPENDENCY_PROXY_SERVER["']?\s*[:=]\s*["']([^"']{3,})["']/g,
-    confidence: "medium",
+    confidence: "low", // server URL, not a credential
     context: ["ci", "proxy", "server", "gitlab"]
   },
   "NPM Registry Auth": {
@@ -316,7 +316,7 @@ export const SECRET_PATTERNS = {
   },
   "CI Package Registry User": {
     pattern: /["']?CI_PACKAGE_REGISTRY_USER["']?\s*[:=]\s*["']([^"']{3,})["']/g,
-    confidence: "medium",
+    confidence: "low", // username, not a secret
     context: ["ci", "package", "registry", "user", "gitlab"]
   },
   "CI Job Token": {
@@ -373,13 +373,13 @@ export const SECRET_PATTERNS = {
   },
   "Environment Variable Key": {
     pattern: /export\s+[A-Z_]+_KEY\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/g,
-    confidence: "high",
+    confidence: "medium", // _KEY is too broad — matches paths, IDs, etc.
     context: ["export", "key", "environment"]
   },
 
   "Shell Variable API Key": {
     pattern: /[a-zA-Z_]+_api_key\s*=\s*["']([a-zA-Z0-9_-]{20,})["']/g,
-    confidence: "high",
+    confidence: "medium", // lowercase api_key= could be in docs, examples
     context: ["api", "key", "shell", "variable"]
   },
 
@@ -458,11 +458,11 @@ export const SECRET_PATTERNS = {
     context: ["shopify", "webhook", "secret"],
     prefilter: "shpss_"
   },
-  // Mapbox tokens — common in mapping frontend apps
-  // pk.eyJ = public token, sk.eyJ = secret token (both are JWT-based)
+  // Mapbox tokens — pk.eyJ is a PUBLIC token (intentionally embedded in frontend),
+  // sk.eyJ is secret. Pattern can't distinguish without parsing, so medium overall.
   "Mapbox Token": {
     pattern: /[ps]k\.eyJ[a-zA-Z0-9_-]{60,}/g,
-    confidence: "high",
+    confidence: "medium",
     context: ["mapbox", "map", "token"],
     prefilter: ".eyJ"
   },
@@ -525,7 +525,7 @@ export const SECRET_PATTERNS = {
 
   "Algolia API Key": {
     pattern: /(?:algolia|ALGOLIA)[^"']*["']([a-zA-Z0-9]{32})["']/g,
-    confidence: "high",
+    confidence: "medium", // Algolia Search-Only keys are public by design; Admin key same format
     context: ["algolia", "search", "api"]
   },
 
@@ -538,7 +538,7 @@ export const SECRET_PATTERNS = {
 
   "Elasticsearch URL": {
     pattern: /(?:elasticsearch|ELASTICSEARCH)\s*[:=]["'\s]{0,5}https?:\/\/[a-zA-Z0-9.-]+:\d+(?:\/[a-zA-Z0-9_-]+)?/g,
-    confidence: "high",
+    confidence: "medium", // URL without credentials — reveals infrastructure, not a key
     context: ["elasticsearch", "elastic", "search"],
     prefilter: "elasticsearch"
   },
