@@ -37,16 +37,6 @@ function setupEventListeners() {
     }
   });
 
-  // Confidence threshold slider
-  const confidenceSlider = document.getElementById('confidenceThreshold');
-  if (confidenceSlider) {
-    confidenceSlider.addEventListener('input', async (e) => {
-      const value = parseFloat(e.target.value);
-      await chrome.storage.local.set({ confidenceThreshold: value });
-      document.getElementById('confidenceValue').textContent = `${Math.round(value * 100)}%`;
-    });
-  }
-
   // Data retention slider
   const retentionSlider = document.getElementById('dataRetentionDays');
   if (retentionSlider) {
