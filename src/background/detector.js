@@ -238,22 +238,46 @@ export function calculateConfidence(config, context, match, secretType = '') {
     const decoded = decodeJWT(match);
     if (decoded && decoded.payload) {
       if (decoded.analysis) {
-        if (decoded.analysis.isExpired)   confidence -= 0.2;
         if (decoded.analysis.isLongLived) confidence += 0.15;
-        if (decoded.analysis.expiresIn !== null && decoded.analysis.expiresIn < 3600) confidence -= 0.1;
+        // Active short-lived token (< 10 min) — operational/infra token, not a leaked secret
+        if (decoded.analysis.lifetime !== null && decoded.analysis.lifetime <= 600) {
+          confidence = 0.1;
+        } else if (decoded.analysis.isExpired) {
+          // Expired token: penalise more if it was originally short-lived (< 1h)
+          if (decoded.analysis.originalLifetime !== null && decoded.analysis.originalLifetime <= 3600) {
+            confidence = 0.1;
+          } else {
+            confidence -= 0.2;
+          }
+        } else if (decoded.analysis.expiresIn !== null && decoded.analysis.expiresIn < 3600) {
+          confidence -= 0.1;
+        }
       }
-      if (decoded.payload.sub === '1234567890' || decoded.payload.sub === 'test') confidence -= 0.15;
+      // jwt.io canonical example token
+      if (decoded.payload.sub === '1234567890' && decoded.payload.name === 'John Doe') {
+        confidence = 0.1;
+      } else if (decoded.payload.sub === '1234567890' || decoded.payload.sub === 'test') {
+        confidence -= 0.15;
+      }
     } else {
       confidence -= 0.15;
     }
   }
 
-  // Generic Password: penalise UI text patterns
-  if (secretType === 'Generic Password') {
-    if (/\s/.test(match) || /^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/.test(match) ||
-        /^(reset|login|sign|continue|verify|password|pass|pwd)$/i.test(match) ||
-        /[а-яё]/i.test(match)) {
-      confidence -= 0.3;
+  // Generic Password Variable: penalise UI text / i18n strings
+  if (secretType === 'Generic Password Variable') {
+    if (/\s/.test(match) || /[а-яёА-ЯЁ]/.test(match) ||
+        /^[A-Z][a-z]+(\s[A-Z][a-z]+)*$/.test(match) ||
+        /^(reset|login|sign|continue|verify|password|pass|pwd)$/i.test(match)) {
+      confidence = 0.1; // hard kill — natural language is never a password
+    }
+  }
+
+  // Google API Keys used for Maps embeds are intentionally public — lower priority
+  if (secretType === 'Google API Key' || secretType === 'Google API Key (standalone)') {
+    if (/maps\.google|googleapis\.com\/maps|google\.maps|maps_api|initmap/i
+        .test(context.surroundingText)) {
+      confidence -= 0.2;
     }
   }
 

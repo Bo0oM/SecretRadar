@@ -696,6 +696,9 @@ export const SECRET_PATTERNS = {
       }
       const m = match.match(/['"`]([a-zA-Z0-9_-]{32,45})['"`]/);
       if (!m) return false;
+      const value = m[1];
+      // Reject code identifiers: underscore_separated_lowercase_words (3+ segments)
+      if (/^_?[a-z][a-z0-9]*(_[a-z][a-z0-9]*){2,}$/.test(value)) return false;
       return true;
     }
   }

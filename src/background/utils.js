@@ -30,7 +30,8 @@ export function decodeJWT(jwt) {
       isLongLived: false,
       expiresIn: null,
       age: null,
-      lifetime: null
+      lifetime: null,
+      originalLifetime: null  // exp - iat, set when both claims are present
     };
 
     // Check expiration time (exp)
@@ -59,6 +60,11 @@ export function decodeJWT(jwt) {
       // If no exp but iat exists, we can estimate lifetime
       if (!payload.exp && age > 86400) {
         tokenAnalysis.isLongLived = true;
+      }
+
+      // Original intended lifetime — works for expired tokens too
+      if (payload.exp) {
+        tokenAnalysis.originalLifetime = payload.exp - issuedAt;
       }
     }
 
